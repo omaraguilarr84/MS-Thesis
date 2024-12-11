@@ -1,0 +1,23 @@
+
+Minimizing Mean Square Error...
+
+Pyramid Level: 1
+
+Iteration    Mean Square Error
+
+Stopping condition:
+    RegularStepGradientDescentOptimizer: Gradient magnitude tolerance met after 0 iterations. Gradient magnitude (3.73553e-08) is less than gradient magnitude tolerance (0.0001).
+
+Pyramid Level: 2
+
+Iteration    Mean Square Error
+
+Stopping condition:
+    RegularStepGradientDescentOptimizer: Gradient magnitude tolerance met after 0 iterations. Gradient magnitude (2.64902e-08) is less than gradient magnitude tolerance (0.0001).
+
+Pyramid Level: 3
+
+Iteration    Mean Square Error
+
+Stopping condition:
+    RegularStepGradientDescentOptimizer: Gradient magnitude tolerance met after 0 iterations. Gradient magnitude (1.60465e-08) is less than gradient magnitude tolerance (0.0001).

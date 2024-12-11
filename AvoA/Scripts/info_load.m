@@ -31,21 +31,34 @@ threshold = 100;
 imBW1 = im1_rescaled > threshold;
 imBW2 = im2_rescaled > threshold;
 
-imBW1_double = double(imBW1) * 10;
-imBW2_double = double(imBW2) * 10;
+scale = 1e-3;
+
+imBW1_double = double(imBW1) * scale;
+imBW2_double = double(imBW2) * scale;
 
 step = 2;
 imBW1_down = imBW1_double(1:step:end, 1:step:end, 1:step:end);
 imBW2_down = imBW2_double(1:step:end, 1:step:end, 1:step:end);
 
-figure;
-subplot(1, 2, 1);
-imshow(imBW1(:, :, 66), []);
-title('Fixed Binary Mask');
+im1_rescaled_down = im1_rescaled(1:step:end, 1:step:end, 1:step:end);
+im2_rescaled_down = im2_rescaled(1:step:end, 1:step:end, 1:step:end);
 
-subplot(1, 2, 2);
+figure;
+subplot(2, 2, 1);
+imshow(imBW1(:, :, 66), []);
+title('Fixed Binary Mask (Full Size)');
+
+subplot(2, 2, 2);
 imshow(imBW2(:, :, 443), []);
-title('Moving Binary Mask');
+title('Moving Binary Mask (Full Size)');
+
+subplot(2, 2, 3);
+imshow(imBW1_down(:, :, 33), []);
+title('Fixed Binary Mask (Downsampled)');
+
+subplot(2, 2, 4);
+imshow(imBW2_down(:, :, 222), []);
+title('Moving Binary Mask (Downsampled)')
 
 %% Get References
 ref1 = imref3d(size(im1_rescaled), ...
@@ -79,26 +92,38 @@ ref2_down = imref3d(size(imBW2_down), ...
 
 optimizer.GradientMagnitudeTolerance = 1e-4;
 optimizer.MinimumStepLength = 1e-5;
-optimizer.MaximumStepLength = 6.25e-2;
+optimizer.MaximumStepLength = 5e-2;
 optimizer.MaximumIterations = 100;
 optimizer.RelaxationFactor = 5e-1;
 
-tform = imregtform(imBW2_down, ref2, imBW1_down, ref1, ...
+clc;
+delete('optimization_log.txt');
+diary('optimization_log.txt');
+
+tform = imregtform(imBW2_down, ref2_down, imBW1_down, ref1_down, ...
     'similarity', optimizer, metric, 'DisplayOptimization', true);
 
-registeredBW2 = imwarp(imBW2_double, ref2, tform, 'OutputView', ref1);
+diary off;
+
+%% Plot Optimization
+plotOptimizationResults('optimization_log.txt')
+
+%% Register Image
+registeredBW2 = imwarp(imBW2_down, ref2_down, tform, 'OutputView', ref1_down);
 
 %% Visualize Result
 figure;
-imshowpair(imBW1(:, :, 66), ...
-           registeredBW2(:, :, 443), ...
+imshowpair(imBW1_down(:, :, 33), ...
+           registeredBW2(:, :, 222), ...
            'falsecolor');
 title('Overlay of Fixed and Registered Binary Masks');
 
-%%
+%% Visualize Results Separately
 figure;
 subplot(1, 2, 1);
-imshow(imBW1(:, :, 66), [])
+imshow(imBW1(:, :, 66), []);
+title('Fixed Image');
 
 subplot(1, 2, 2);
-imshow(registeredBW2(:, :, 443), [])
+imshow(registeredBW2(:, :, 222), [])
+title('Moving Image');
