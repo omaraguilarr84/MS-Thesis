@@ -2,7 +2,7 @@ clear; clc; close all;
 
 %% Load Info and Image
 dicomFolder1 = '../Data/20240910/series/';
-dicomFolder2 = '../Data/20241007/series/';
+dicomFolder2 = '../Data/20240910/series/';
 
 files1 = dir(fullfile(dicomFolder1, '*.dcm'));
 files2 = dir(fullfile(dicomFolder2, '*.dcm'));

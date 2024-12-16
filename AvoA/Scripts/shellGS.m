@@ -46,15 +46,9 @@ im1_rescaled_down = im1_rescaled(1:step:end, 1:step:end, 1:step:end);
 im2_rescaled_down = im2_rescaled(1:step:end, 1:step:end, 1:step:end);
 
 %% Get References
-ref1 = imref3d(size(im1_rescaled), ...
-               info1.PixelSpacing(1), ... % X spacing
-               info1.PixelSpacing(2), ... % Y spacing
-               info1.SliceThickness);     % Z spacing
-
-ref2 = imref3d(size(im2_rescaled), ...
-               info2.PixelSpacing(1), ...
-               info2.PixelSpacing(2), ...
-               info2.SliceThickness);
+shell = find(any(any(fixedImageBW_down > 0, 1), 2));
+fixedShell = fixedImageBW_down(:, :, shell);
+movingShell = movingImageBW_down(:, :, shell);
 
 adjustedPixelSpacing1 = info1.PixelSpacing * step;
 adjustedPixelSpacing2 = info2.PixelSpacing * step;
@@ -62,12 +56,12 @@ adjustedPixelSpacing2 = info2.PixelSpacing * step;
 adjustedSliceThickness1 = info1.SliceThickness * step;
 adjustedSliceThickness2 = info2.SliceThickness * step;
 
-ref1_down = imref3d(size(fixedImageBW_down), ...
+ref1_down = imref3d(size(fixedShell), ...
                     adjustedPixelSpacing1(1), ... % X spacing
                     adjustedPixelSpacing1(2), ... % Y spacing
                     adjustedSliceThickness1);     % Z spacing
 
-ref2_down = imref3d(size(movingImageBW_down), ...
+ref2_down = imref3d(size(movingShell), ...
                     adjustedPixelSpacing2(1), ...
                     adjustedPixelSpacing2(2), ...
                     adjustedSliceThickness2);
@@ -115,12 +109,13 @@ parfor idx = 1:numCombinations
 
     % Perform registration
     try
-        tform = imregtform(movingImageBW_down, ref2_down, ...
-            fixedImageBW_down, ref1_down, 'similarity', optimizer, metric);
-        registeredImage = imwarp(movingImageBW_down, ref2_down, tform, 'OutputView', ref1_down);
+        tform = imregtform(movingShell, ref2_down, ...
+            fixedShell, ref1_down, 'similarity', optimizer, metric);
+        registeredImage = imwarp(movingShell, ref2_down, tform, ...
+            'OutputView', ref1_down);
         
         % Evaluate similarity (e.g., Mean Squared Error)
-        mse = immse(double(registeredImage), double(fixedImageBW_down));
+        mse = immse(double(registeredImage), double(fixedShell));
         similarityScores(idx) = mse;
     catch
         % Handle failures gracefully
@@ -157,14 +152,14 @@ clc;
 delete('optimization_log.txt');
 diary('optimization_log.txt');
 
-tform = imregtform(movingImageBW_down, ref2_down, fixedImageBW_down, ...
+tform = imregtform(movingShell, ref2_down, fixedShell, ...
     ref1_down, 'similarity', optimizer, metric, 'DisplayOptimization', true);
 
 diary off;
 
 plotOptimizationResults('optimization_log.txt')
 
-registeredImage = imwarp(movingImageBW_down, ref2_down, tform, 'OutputView', ref1_down);
+registeredImage = imwarp(movingShell, ref2_down, tform, 'OutputView', ref1_down);
 
 %%
-interactiveRegVis(registeredImage, fixedImageBW_down, 'z');
+interactiveRegVis(registeredImage, fixedShell, 'z');
