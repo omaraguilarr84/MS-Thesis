@@ -29,7 +29,7 @@ im2_rescaled = info2.RescaleSlope * scan2 + info2.RescaleIntercept;
 
 %% Threshold & Downsample Images
 disp('Thresholding...');
-threshold = 300;
+threshold = 500;
 imBW1 = im1_rescaled > threshold;
 imBW2 = im2_rescaled > threshold;
 
@@ -65,22 +65,23 @@ ref2_down = imref3d(size(movingShell), ...
                     adjustedPixelSpacing2(1), ...
                     adjustedPixelSpacing2(2), ...
                     adjustedSliceThickness2);
-
 %% Perform Grid Search
 % Define parameter ranges
-gradientMagnitudeToleranceRange = [1e-6, 1e-4, 1e-2];
-minimumStepLengthRange = [1e-7, 1e-5, 1e-3];
-maximumStepLengthRange = [6.25e-2, 6.25e-4, 6.25e-6];
-maximumIterationsRange = 100;
-relaxationFactorRange = [0.3, 0.5, 0.7];
+gradientMagnitudeToleranceRange = [1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9];
+minimumStepLengthRange = [1e-3, 1e-4, 1e-5, 1e-6, 1e-7];
+maximumStepLengthRange = [6.25e-2, 6.25e-3, 6.25e-4];
+maximumIterationsRange = [100, 200, 300];
+relaxationFactorRange = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
+pyramidLevelRange = [1, 2, 3];
 
 % Create a grid of parameter combinations
-[gradTol, minStepLen, maxStepLen, maxIter, relaxFactor] = ndgrid( ...
+[gradTol, minStepLen, maxStepLen, maxIter, relaxFactor, pyrLevel] = ndgrid( ...
     gradientMagnitudeToleranceRange, ...
     minimumStepLengthRange, ...
     maximumStepLengthRange, ...
     maximumIterationsRange, ...
-    relaxationFactorRange);
+    relaxationFactorRange, ...
+    pyramidLevelRange);
 
 % Initialize variables to store results
 numCombinations = numel(gradTol);
@@ -98,6 +99,7 @@ parfor idx = 1:numCombinations
     maxStepLength = maxStepLen(idx);
     maxIterations = maxIter(idx);
     relaxationFactor = relaxFactor(idx);
+    pyramidLevel = pyrLevel(idx);
     
     % Create optimizer and modify parameters
     [optimizer, metric] = imregconfig('monomodal');
@@ -110,26 +112,28 @@ parfor idx = 1:numCombinations
     % Perform registration
     try
         tform = imregtform(movingShell, ref2_down, ...
-            fixedShell, ref1_down, 'similarity', optimizer, metric);
+            fixedShell, ref1_down, 'similarity', optimizer, metric, ...
+            'PyramidLevels', pyramidLevel);
         registeredImage = imwarp(movingShell, ref2_down, tform, ...
             'OutputView', ref1_down);
         
         % Evaluate similarity (e.g., Mean Squared Error)
-        mse = immse(double(registeredImage), double(fixedShell));
-        similarityScores(idx) = mse;
+        overlap = 2 * nnz(fixedShell & registeredImage) / (nnz(fixedShell) + nnz(registeredImage));
+        similarityScores(idx) = overlap;
     catch
         % Handle failures gracefully
         similarityScores(idx) = Inf; % Assign a large value for failed registrations
     end
 end
 
-% Find the best parameters
-[~, bestIdx] = min(similarityScores);
+%% Find the best parameters
+[bestSimScore, bestIdx] = max(similarityScores);
 bestParams.GradientMagnitudeTolerance = gradTol(bestIdx);
 bestParams.MinimumStepLength = minStepLen(bestIdx);
 bestParams.MaximumStepLength = maxStepLen(bestIdx);
 bestParams.MaximumIterations = maxIter(bestIdx);
 bestParams.RelaxationFactor = relaxFactor(bestIdx);
+bestParams.PyramidLevel = pyrLevel(bestIdx);
 
 % Display best parameters and corresponding similarity score
 disp('Best Parameters:');
@@ -148,12 +152,15 @@ optimizer.MaximumStepLength = bestParams.MaximumStepLength;
 optimizer.MaximumIterations = bestParams.MaximumIterations;
 optimizer.RelaxationFactor = bestParams.RelaxationFactor;
 
+pyrLevel = bestParams.PyramidLevel;
+
 clc;
 delete('optimization_log.txt');
 diary('optimization_log.txt');
 
 tform = imregtform(movingShell, ref2_down, fixedShell, ...
-    ref1_down, 'similarity', optimizer, metric, 'DisplayOptimization', true);
+    ref1_down, 'similarity', optimizer, metric, 'DisplayOptimization', true, ...
+    'PyramidLevels', pyrLevel);
 
 diary off;
 
@@ -163,3 +170,50 @@ registeredImage = imwarp(movingShell, ref2_down, tform, 'OutputView', ref1_down)
 
 %%
 interactiveRegVis(registeredImage, fixedShell, 'z');
+
+%%
+% Reshape data to vectors
+gradTol = gradTol(:);
+minStepLen = minStepLen(:);
+maxStepLen = maxStepLen(:);
+maxIter = maxIter(:);
+relaxFactor = relaxFactor(:);
+similarityScores = similarityScores(:);
+
+% Initialize a figure
+figure;
+tiledlayout(3, 2); % Adjust layout for 5 subplots
+
+% Plot each parameter against similarity scores
+nexttile;
+semilogx(gradTol, similarityScores, 'o', 'MarkerSize', 5);
+xlabel('Gradient Magnitude Tolerance (log scale)');
+ylabel('Similarity Score');
+title('Effect of Gradient Magnitude Tolerance');
+
+nexttile;
+semilogx(minStepLen, similarityScores, 'o', 'MarkerSize', 5);
+xlabel('Minimum Step Length (log scale)');
+ylabel('Similarity Score');
+title('Effect of Minimum Step Length');
+
+nexttile;
+semilogx(maxStepLen, similarityScores, 'o', 'MarkerSize', 5);
+xlabel('Maximum Step Length (log scale)');
+ylabel('Similarity Score');
+title('Effect of Maximum Step Length');
+
+nexttile;
+scatter(maxIter, similarityScores, 'filled');
+xlabel('Maximum Iterations');
+ylabel('Similarity Score');
+title('Effect of Maximum Iterations');
+
+nexttile;
+scatter(relaxFactor, similarityScores, 'filled');
+xlabel('Relaxation Factor');
+ylabel('Similarity Score');
+title('Effect of Relaxation Factor');
+
+% Improve layout
+sgtitle('Parameter Effects on Similarity Score (Logarithmic for Select Parameters)');

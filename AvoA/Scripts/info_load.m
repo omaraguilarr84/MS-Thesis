@@ -33,7 +33,7 @@ threshold = 500;
 imBW1 = im1_rescaled > threshold;
 imBW2 = im2_rescaled > threshold;
 
-scale = 100;
+scale = 10;
 
 imBW1_double = double(imBW1) * scale;
 imBW2_double = double(imBW2) * scale;
@@ -100,12 +100,12 @@ ref2_down = imref3d(size(imBW2_down(:, :, shell)), ...
 disp('Computing transform...');
 [optimizer, metric] = imregconfig('monomodal');
 
-optimizer.GradientMagnitudeTolerance = 1e-15;
-optimizer.MinimumStepLength = 1e-5;
+optimizer.GradientMagnitudeTolerance = 1e-10;
+optimizer.MinimumStepLength = 1e-4;
 optimizer.MaximumStepLength = 5e-2;
-optimizer.MaximumIterations = 200;
-optimizer.RelaxationFactor = 0.8;
-pyramidLevels = 2;
+optimizer.MaximumIterations = 100;
+optimizer.RelaxationFactor = 0.6;
+pyramidLevels = 1;
 
 clc;
 delete('optimization_log.txt');
@@ -117,15 +117,13 @@ tform = imregtform(imBW2_down(:, :, shell), ref2_down, imBW1_down(:, :, shell), 
 diary off;
 
 %% Plot Optimization
-plotOptimizationResults('optimization_log.txt')
+plotOptimizationResults('optimization_log.txt');
 
 %% Register Image
 registeredBW2 = imwarp(imBW2_down(:, :, shell), ref2_down, tform, 'OutputView', ref1_down);
 
-% diceCoeff = 2 * sum(imBW1_down(:) & registeredBW2(:)) / ...
-%             (sum(imBW1_down(:)) + sum(registeredBW2(:)));
-% disp('Dice Coeff:');
-% disp(diceCoeff);
+overlap = 2 * nnz(imBW1_down(:, :, shell) & registeredBW2) / (nnz(imBW1_down(:, :, shell)) + nnz(registeredBW2));
+disp(['Dice Coefficient: ', num2str(overlap)]);
 
 mseValue = immse(imBW1_down(:, :, shell), registeredBW2);
 disp('MSE Value:')

@@ -2,7 +2,7 @@ clear; clc; close all;
 
 %% Load Info and Image
 dicomFolder1 = '../Data/20240910/series/';
-dicomFolder2 = '../Data/20240910/series/';
+dicomFolder2 = '../Data/20241007/series/';
 
 files1 = dir(fullfile(dicomFolder1, '*.dcm'));
 files2 = dir(fullfile(dicomFolder2, '*.dcm'));
@@ -33,7 +33,7 @@ threshold = 500;
 imBW1 = im1_rescaled > threshold;
 imBW2 = im2_rescaled > threshold;
 
-scale = 100;
+scale = 50;
 
 imBW1_double = double(imBW1) * scale;
 imBW2_double = double(imBW2) * scale;
@@ -100,10 +100,10 @@ ref2_down = imref3d(size(imBW2_down(:, :, shell)), ...
 disp('Computing transform...');
 [optimizer, metric] = imregconfig('monomodal');
 
-optimizer.GradientMagnitudeTolerance = 1e-15;
+optimizer.GradientMagnitudeTolerance = 1e-8;
 optimizer.MinimumStepLength = 1e-5;
-optimizer.MaximumStepLength = 5e-2;
-optimizer.MaximumIterations = 200;
+optimizer.MaximumStepLength = 6.25e-2;
+optimizer.MaximumIterations = 300;
 optimizer.RelaxationFactor = 0.8;
 pyramidLevels = 2;
 
