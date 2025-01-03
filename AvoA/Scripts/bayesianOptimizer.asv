@@ -4,6 +4,8 @@ clear; clc; close all;
 dicomFolder1 = '../Data/20240910/series/';
 dicomFolder2 = '../Data/20241007/series/';
 
+warning('off', 'MATLAB:DELETE:Permission');
+
 disp('Scanning Images...');
 [im1, info1] = loadDicom3D(dicomFolder1);
 [im2, info2] = loadDicom3D(dicomFolder2);
@@ -48,17 +50,17 @@ else
     end
 end
 
-% initialX = table( ...
-%     1e-4, ...      % GradientMagnitudeTolerance
-%     1e-4, ...    % MinimumStepLength
-%     6.25e-4, ...     % MaximumStepLength
-%     300, ...       % MaximumIterations
-%     0.3, ...       % RelaxationFactor
-%     2, ...         % PyramidLevel
-%     'VariableNames', {'GradientMagnitudeTolerance', 'MinimumStepLength', 'MaximumStepLength', ...
-%                       'MaximumIterations', 'RelaxationFactor', 'PyramidLevel'});
+initialX = table( ...
+    1e-6, ...      % GradientMagnitudeTolerance
+    1e-4, ...    % MinimumStepLength
+    6.25e-3, ...     % MaximumStepLength
+    300, ...       % MaximumIterations
+    0.6, ...       % RelaxationFactor
+    2, ...         % PyramidLevel
+    'VariableNames', {'GradientMagnitudeTolerance', 'MinimumStepLength', 'MaximumStepLength', ...
+                      'MaximumIterations', 'RelaxationFactor', 'PyramidLevel'});
 
-results = bayesopt(@(params)objFcn(params, movingShell, ref2_down, fixedShell, ref1_down), ...
+results = bayesopt(@(params)objFcn(params, movingShell, mRef, fixedShell, fRef), ...
     [optimizableVariable('GradientMagnitudeTolerance', [1e-10, 1e-3], 'Transform', 'log'), ...
      optimizableVariable('MinimumStepLength', [1e-10, 1e-3], 'Transform', 'log'), ...
      optimizableVariable('MaximumStepLength', [1e-6, 1e-1], 'Transform', 'log'), ...
@@ -84,16 +86,16 @@ optimizer.MaximumIterations = results.XAtMinObjective.MaximumIterations;
 optimizer.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
 
 bestPyramidLevel = results.XAtMinObjective.PyramidLevel;
-tform = imregtform(movingShell, ref2_down, fixedShell, ...
-    ref1_down, 'affine', optimizer, metric, ...
+tform = imregtform(movingShell, mRef, fixedShell, ...
+    fRef, 'affine', optimizer, metric, ...
     'PyramidLevels', bestPyramidLevel);
 
-registeredImage = imwarp(movingShell, ref2_down, tform, 'OutputView', ref1_down);
+registeredImage = imwarp(movingShell, mRef, tform, 'OutputView', fRef);
 
 interactiveRegVis(registeredImage, fixedShell, 'z');
 
 %% Objective Function Definition
-function score = objFcn(params, movingShell, ref2_down, fixedShell, ref1_down)
+function score = objFcn(params, movingShell, mRef, fixedShell, fRef)
     try
         [optimizer, metric] = imregconfig('monomodal');
         optimizer.GradientMagnitudeTolerance = params.GradientMagnitudeTolerance;
@@ -102,11 +104,11 @@ function score = objFcn(params, movingShell, ref2_down, fixedShell, ref1_down)
         optimizer.MaximumIterations = params.MaximumIterations;
         optimizer.RelaxationFactor = params.RelaxationFactor;
 
-        tform = imregtform(movingShell, ref2_down, fixedShell, ...
-            ref1_down, 'affine', optimizer, metric, ...
+        tform = imregtform(movingShell, mRef, fixedShell, ...
+            fRef, 'affine', optimizer, metric, ...
             'PyramidLevels', params.PyramidLevel);
-        registeredImage = imwarp(movingShell, ref2_down, tform, ...
-            'OutputView', ref1_down);
+        registeredImage = imwarp(movingShell, mRef, tform, ...
+            'OutputView', fRef);
 
         overlap = 2 * nnz(fixedShell & registeredImage) / (nnz(fixedShell) + nnz(registeredImage));
         score = -overlap;

@@ -4,6 +4,8 @@ clear; clc; close all;
 dicomFolder1 = '../Data/20240910/series/';
 dicomFolder2 = '../Data/20241007/series/';
 
+warning('off', 'MATLAB:DELETE:Permission');
+
 disp('Scanning Images...');
 [im1, info1] = loadDicom3D(dicomFolder1);
 [im2, info2] = loadDicom3D(dicomFolder2);
@@ -48,15 +50,15 @@ else
     end
 end
 
-% initialX = table( ...
-%     1e-4, ...      % GradientMagnitudeTolerance
-%     1e-4, ...    % MinimumStepLength
-%     6.25e-4, ...     % MaximumStepLength
-%     300, ...       % MaximumIterations
-%     0.3, ...       % RelaxationFactor
-%     2, ...         % PyramidLevel
-%     'VariableNames', {'GradientMagnitudeTolerance', 'MinimumStepLength', 'MaximumStepLength', ...
-%                       'MaximumIterations', 'RelaxationFactor', 'PyramidLevel'});
+initialX = table( ...
+    1e-6, ...      % GradientMagnitudeTolerance
+    1e-4, ...    % MinimumStepLength
+    6.25e-3, ...     % MaximumStepLength
+    300, ...       % MaximumIterations
+    0.6, ...       % RelaxationFactor
+    2, ...         % PyramidLevel
+    'VariableNames', {'GradientMagnitudeTolerance', 'MinimumStepLength', 'MaximumStepLength', ...
+                      'MaximumIterations', 'RelaxationFactor', 'PyramidLevel'});
 
 results = bayesopt(@(params)objFcn(params, movingShell, mRef, fixedShell, fRef), ...
     [optimizableVariable('GradientMagnitudeTolerance', [1e-10, 1e-3], 'Transform', 'log'), ...
@@ -67,7 +69,7 @@ results = bayesopt(@(params)objFcn(params, movingShell, mRef, fixedShell, fRef),
      optimizableVariable('PyramidLevel', [1, 3], 'Type', 'integer')], ...
     'Verbose', 1, ...
     'AcquisitionFunctionName', 'expected-improvement-plus', ...
-    'MaxObjectiveEvaluations', 50, ...
+    'MaxObjectiveEvaluations', 200, ...
     'UseParallel', true);
     %'InitialX', initialX);
 
