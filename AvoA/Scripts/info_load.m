@@ -11,9 +11,19 @@ disp('Scanning Image 1...');
 scan1 = [];
 for i = 1:length(files1)
     slice = dicomread(fullfile(files1(i).folder, files1(i).name));
-    scan1(:, :, i) = slice;
+    tmp_info = dicominfo(fullfile(files1(i).folder, files1(i).name));
+    sliceloc1(i)=tmp_info.SliceLocation;
+    scan1(:, :, i) = slice;        
 end
 
+%%
+figure;
+plot(diff(sliceloc1));
+
+% find absolute value of avg then replace adjustedSliceThickness with this
+
+
+%%
 disp('Scanning Image 2...');
 scan2 = [];
 for i = 1:length(files2)
@@ -38,7 +48,7 @@ scale = 10;
 imBW1_double = double(imBW1) * scale;
 imBW2_double = double(imBW2) * scale;
 
-step = 2;
+step = 1;
 imBW1_down = imBW1_double(1:step:end, 1:step:end, 1:step:end);
 imBW2_down = imBW2_double(1:step:end, 1:step:end, 1:step:end);
 
@@ -86,12 +96,12 @@ adjustedPixelSpacing2 = info2.PixelSpacing * step;
 adjustedSliceThickness1 = info1.SliceThickness * step;
 adjustedSliceThickness2 = info2.SliceThickness * step;
 
-ref1_down = imref3d(size(imBW1_down(:, :, shell)), ...
+ref1_down = imref3d(size(imBW1_down), ...
                     adjustedPixelSpacing1(1), ... % X spacing
                     adjustedPixelSpacing1(2), ... % Y spacing
                     adjustedSliceThickness1);     % Z spacing
 
-ref2_down = imref3d(size(imBW2_down(:, :, shell)), ...
+ref2_down = imref3d(size(imBW2_down), ...
                     adjustedPixelSpacing2(1), ...
                     adjustedPixelSpacing2(2), ...
                     adjustedSliceThickness2);
@@ -100,19 +110,19 @@ ref2_down = imref3d(size(imBW2_down(:, :, shell)), ...
 disp('Computing transform...');
 [optimizer, metric] = imregconfig('monomodal');
 
-optimizer.GradientMagnitudeTolerance = 1e-10;
-optimizer.MinimumStepLength = 1e-4;
-optimizer.MaximumStepLength = 5e-2;
-optimizer.MaximumIterations = 100;
-optimizer.RelaxationFactor = 0.6;
-pyramidLevels = 1;
+optimizer.GradientMagnitudeTolerance = 5e-5;
+optimizer.MinimumStepLength = 1.6e-5;
+optimizer.MaximumStepLength = 1e-3;
+optimizer.MaximumIterations = 300;
+optimizer.RelaxationFactor = 0.3;
+pyramidLevels = 3;
 
 clc;
 delete('optimization_log.txt');
 diary('optimization_log.txt');
 
-tform = imregtform(imBW2_down(:, :, shell), ref2_down, imBW1_down(:, :, shell), ref1_down, ...
-    'similarity', optimizer, metric, 'DisplayOptimization', true, 'PyramidLevels', pyramidLevels);
+tform = imregtform(imBW2_down, ref2_down, imBW1_down, ref1_down, ...
+    'affine', optimizer, metric, 'DisplayOptimization', true, 'PyramidLevels', pyramidLevels);
 
 diary off;
 
@@ -120,13 +130,13 @@ diary off;
 plotOptimizationResults('optimization_log.txt');
 
 %% Register Image
-registeredBW2 = imwarp(imBW2_down(:, :, shell), ref2_down, tform, 'OutputView', ref1_down);
+registeredBW2 = imwarp(imBW2_down, ref2_down, tform, 'OutputView', ref1_down);
 
-overlap = 2 * nnz(imBW1_down(:, :, shell) & registeredBW2) / (nnz(imBW1_down(:, :, shell)) + nnz(registeredBW2));
+overlap = 2 * nnz(imBW1_down & registeredBW2) / (nnz(imBW1_down) + nnz(registeredBW2));
 disp(['Dice Coefficient: ', num2str(overlap)]);
 
-mseValue = immse(imBW1_down(:, :, shell), registeredBW2);
-disp('MSE Value:')
+mseValue = immse(imBW1_down, registeredBW2);
+disp('MSE Value:');
 disp(mseValue);
 
 % %% Visualize Result
@@ -147,7 +157,11 @@ disp(mseValue);
 % title('Moving Image');
 
 %% Interactive Visualization of Z
-interactiveRegVis(registeredBW2, imBW1_down(:, :, shell), 'z');
+interactiveRegVis(registeredBW2, imBW1_down, 'z');
 
 %% Write Video of Interactive Visualization
 regVideo(registeredBW2, imBW1_down, 'y');
+
+%%
+regIm = imwarp(im2_rescaled, ref2_down, tform, 'OutputView', ref1_down);
+interactiveRegVis(regIm, im1_rescaled, 'z');

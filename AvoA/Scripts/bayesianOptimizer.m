@@ -69,43 +69,39 @@ ref2_down = imref3d(size(movingShell), ...
 %% Bayesian Optimization with Improvements
 disp('Starting Bayesian Optimization...');
 
-% Check if a parallel pool is already open
-pool = gcp('nocreate'); % Get the current parallel pool without creating a new one
+n_workers = 4;
+pool = gcp('nocreate');
 if isempty(pool)
-    % No pool is active, so create a new one
-    parpool('local', 8);
+    parpool('local', n_workers);
 else
-    % A pool is already active, adjust workers if necessary
-    if pool.NumWorkers ~= 8
-        delete(pool); % Delete the existing pool
-        parpool('local', 8); % Create a new one with 8 workers
+    if pool.NumWorkers ~= n_workers
+        delete(pool);
+        parpool('local', n_workers);
     end
 end
 
-% Define initial parameter values as a table
-initialX = table( ...
-    1e-4, ...      % GradientMagnitudeTolerance
-    1e-4, ...    % MinimumStepLength
-    6.25e-4, ...     % MaximumStepLength
-    300, ...       % MaximumIterations
-    0.3, ...       % RelaxationFactor
-    2, ...         % PyramidLevel
-    'VariableNames', {'GradientMagnitudeTolerance', 'MinimumStepLength', 'MaximumStepLength', ...
-                      'MaximumIterations', 'RelaxationFactor', 'PyramidLevel'});
+% initialX = table( ...
+%     1e-4, ...      % GradientMagnitudeTolerance
+%     1e-4, ...    % MinimumStepLength
+%     6.25e-4, ...     % MaximumStepLength
+%     300, ...       % MaximumIterations
+%     0.3, ...       % RelaxationFactor
+%     2, ...         % PyramidLevel
+%     'VariableNames', {'GradientMagnitudeTolerance', 'MinimumStepLength', 'MaximumStepLength', ...
+%                       'MaximumIterations', 'RelaxationFactor', 'PyramidLevel'});
 
-% Bayesian optimization call with the corrected InitialX
 results = bayesopt(@(params)objFcn(params, movingShell, ref2_down, fixedShell, ref1_down), ...
-    [optimizableVariable('GradientMagnitudeTolerance', [1e-9, 1e-3], 'Transform', 'log'), ...
-     optimizableVariable('MinimumStepLength', [1e-9, 1e-3], 'Transform', 'log'), ...
-     optimizableVariable('MaximumStepLength', [1e-6, 1e-3], 'Transform', 'log'), ...
+    [optimizableVariable('GradientMagnitudeTolerance', [1e-10, 1e-3], 'Transform', 'log'), ...
+     optimizableVariable('MinimumStepLength', [1e-10, 1e-3], 'Transform', 'log'), ...
+     optimizableVariable('MaximumStepLength', [1e-6, 1e-1], 'Transform', 'log'), ...
      optimizableVariable('MaximumIterations', [50, 300], 'Type', 'integer'), ...
      optimizableVariable('RelaxationFactor', [0.3, 0.8]), ...
      optimizableVariable('PyramidLevel', [1, 3], 'Type', 'integer')], ...
     'Verbose', 1, ...
-    'AcquisitionFunctionName', 'lower-confidence-bound', ...
-    'MaxObjectiveEvaluations', 100, ...
-    'UseParallel', true, ...
-    'InitialX', initialX);
+    'AcquisitionFunctionName', 'expected-improvement-plus', ...
+    'MaxObjectiveEvaluations', 50, ...
+    'UseParallel', true);
+    %'InitialX', initialX);
 
 %% Extract Best Parameters
 disp('Best Parameters:');
@@ -119,10 +115,9 @@ optimizer.MaximumStepLength = results.XAtMinObjective.MaximumStepLength;
 optimizer.MaximumIterations = results.XAtMinObjective.MaximumIterations;
 optimizer.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
 
-% Perform registration with the best parameters
 bestPyramidLevel = results.XAtMinObjective.PyramidLevel;
 tform = imregtform(movingShell, ref2_down, fixedShell, ...
-    ref1_down, 'similarity', optimizer, metric, ...
+    ref1_down, 'affine', optimizer, metric, ...
     'PyramidLevels', bestPyramidLevel);
 
 registeredImage = imwarp(movingShell, ref2_down, tform, 'OutputView', ref1_down);
@@ -132,7 +127,6 @@ interactiveRegVis(registeredImage, fixedShell, 'z');
 %% Objective Function Definition
 function score = objFcn(params, movingShell, ref2_down, fixedShell, ref1_down)
     try
-        % Create optimizer and modify parameters
         [optimizer, metric] = imregconfig('monomodal');
         optimizer.GradientMagnitudeTolerance = params.GradientMagnitudeTolerance;
         optimizer.MinimumStepLength = params.MinimumStepLength;
@@ -140,18 +134,15 @@ function score = objFcn(params, movingShell, ref2_down, fixedShell, ref1_down)
         optimizer.MaximumIterations = params.MaximumIterations;
         optimizer.RelaxationFactor = params.RelaxationFactor;
 
-        % Perform registration
         tform = imregtform(movingShell, ref2_down, fixedShell, ...
             ref1_down, 'affine', optimizer, metric, ...
             'PyramidLevels', params.PyramidLevel);
         registeredImage = imwarp(movingShell, ref2_down, tform, ...
             'OutputView', ref1_down);
 
-        % Evaluate similarity using Dice coefficient
         overlap = 2 * nnz(fixedShell & registeredImage) / (nnz(fixedShell) + nnz(registeredImage));
-        score = -overlap; % Minimize negative similarity
+        score = -overlap;
     catch
-        % Assign a high penalty for failed registrations
         score = Inf;
     end
 end
