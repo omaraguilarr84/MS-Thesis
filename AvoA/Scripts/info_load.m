@@ -4,44 +4,14 @@ clear; clc; close all;
 dicomFolder1 = '../Data/20240910/series/';
 dicomFolder2 = '../Data/20241007/series/';
 
-files1 = dir(fullfile(dicomFolder1, '*.dcm'));
-files2 = dir(fullfile(dicomFolder2, '*.dcm'));
-
-disp('Scanning Image 1...');
-scan1 = [];
-for i = 1:length(files1)
-    slice = dicomread(fullfile(files1(i).folder, files1(i).name));
-    tmp_info = dicominfo(fullfile(files1(i).folder, files1(i).name));
-    sliceloc1(i)=tmp_info.SliceLocation;
-    scan1(:, :, i) = slice;        
-end
-
-%%
-figure;
-plot(diff(sliceloc1));
-
-% find absolute value of avg then replace adjustedSliceThickness with this
-
-
-%%
-disp('Scanning Image 2...');
-scan2 = [];
-for i = 1:length(files2)
-    slice = dicomread(fullfile(files2(i).folder, files2(i).name));
-    scan2(:, :, i) = slice;
-end
-
-info1 = dicominfo(fullfile(files1(1).folder, files1(1).name));
-info2 = dicominfo(fullfile(files2(1).folder, files2(1).name));
-
-im1_rescaled = info1.RescaleSlope * scan1 + info1.RescaleIntercept;
-im2_rescaled = info2.RescaleSlope * scan2 + info2.RescaleIntercept;
+[im1, info1] = loadDicom3D(dicomFolder1);
+[im2, info2] = loadDicom3D(dicomFolder2);
 
 %% Threshold & Downsample Images
 disp('Thresholding images...');
 threshold = 500;
-imBW1 = im1_rescaled > threshold;
-imBW2 = im2_rescaled > threshold;
+imBW1 = im1 > threshold;
+imBW2 = im2 > threshold;
 
 scale = 10;
 
@@ -52,8 +22,8 @@ step = 1;
 imBW1_down = imBW1_double(1:step:end, 1:step:end, 1:step:end);
 imBW2_down = imBW2_double(1:step:end, 1:step:end, 1:step:end);
 
-im1_rescaled_down = im1_rescaled(1:step:end, 1:step:end, 1:step:end);
-im2_rescaled_down = im2_rescaled(1:step:end, 1:step:end, 1:step:end);
+im1_down = im1(1:step:end, 1:step:end, 1:step:end);
+im2_down = im2(1:step:end, 1:step:end, 1:step:end);
 
 %%
 interactiveRegVis(imBW1_down, imBW2_down, 'z');
@@ -80,31 +50,8 @@ shell = find(any(any(imBW1_down > 0, 1), 2));
 % title('Moving Binary Mask (Downsampled)')
 
 %% Get References
-ref1 = imref3d(size(im1_rescaled), ...
-               info1.PixelSpacing(1), ... % X spacing
-               info1.PixelSpacing(2), ... % Y spacing
-               info1.SliceThickness);     % Z spacing
-
-ref2 = imref3d(size(im2_rescaled), ...
-               info2.PixelSpacing(1), ...
-               info2.PixelSpacing(2), ...
-               info2.SliceThickness);
-
-adjustedPixelSpacing1 = info1.PixelSpacing * step;
-adjustedPixelSpacing2 = info2.PixelSpacing * step;
-
-adjustedSliceThickness1 = info1.SliceThickness * step;
-adjustedSliceThickness2 = info2.SliceThickness * step;
-
-ref1_down = imref3d(size(imBW1_down), ...
-                    adjustedPixelSpacing1(1), ... % X spacing
-                    adjustedPixelSpacing1(2), ... % Y spacing
-                    adjustedSliceThickness1);     % Z spacing
-
-ref2_down = imref3d(size(imBW2_down), ...
-                    adjustedPixelSpacing2(1), ...
-                    adjustedPixelSpacing2(2), ...
-                    adjustedSliceThickness2);
+ref1 = createRef(info1, imBW1_down, step);
+ref2 = createRef(info2, imBW2_down, step);
 
 %% Get Transform
 disp('Computing transform...');

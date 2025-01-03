@@ -1,70 +1,38 @@
 clear; clc; close all;
 
 %% Load Info and Image
-disp('Scanning images...');
 dicomFolder1 = '../Data/20240910/series/';
 dicomFolder2 = '../Data/20241007/series/';
 
-files1 = dir(fullfile(dicomFolder1, '*.dcm'));
-files2 = dir(fullfile(dicomFolder2, '*.dcm'));
-
-scan1 = [];
-for i = 1:length(files1)
-    slice = dicomread(fullfile(files1(i).folder, files1(i).name));
-    scan1(:, :, i) = slice;
-end
-
-scan2 = [];
-for i = 1:length(files2)
-    slice = dicomread(fullfile(files2(i).folder, files2(i).name));
-    scan2(:, :, i) = slice;
-end
-
-info1 = dicominfo(fullfile(files1(1).folder, files1(1).name));
-info2 = dicominfo(fullfile(files2(1).folder, files2(1).name));
-
-%% Rescale Images
-im1_rescaled = info1.RescaleSlope * scan1 + info1.RescaleIntercept;
-im2_rescaled = info2.RescaleSlope * scan2 + info2.RescaleIntercept;
+disp('Scanning Images...');
+[im1, info1] = loadDicom3D(dicomFolder1);
+[im2, info2] = loadDicom3D(dicomFolder2);
 
 %% Threshold & Downsample Images
-disp('Thresholding...');
+disp('Thresholding images...');
 threshold = 500;
-imBW1 = im1_rescaled > threshold;
-imBW2 = im2_rescaled > threshold;
+imBW1 = im1 > threshold;
+imBW2 = im2 > threshold;
 
 scale = 10;
 
 imBW1_double = double(imBW1) * scale;
 imBW2_double = double(imBW2) * scale;
 
-step = 2; % Increased downsampling factor
+step = 4;
 fixedImageBW_down = imBW1_double(1:step:end, 1:step:end, 1:step:end);
 movingImageBW_down = imBW2_double(1:step:end, 1:step:end, 1:step:end);
 
-im1_rescaled_down = im1_rescaled(1:step:end, 1:step:end, 1:step:end);
-im2_rescaled_down = im2_rescaled(1:step:end, 1:step:end, 1:step:end);
+im1_down = im1(1:step:end, 1:step:end, 1:step:end);
+im2_down = im2(1:step:end, 1:step:end, 1:step:end);
 
 %% Get References
 shell = find(any(any(fixedImageBW_down > 0, 1), 2));
 fixedShell = fixedImageBW_down(:, :, shell);
 movingShell = movingImageBW_down(:, :, shell);
 
-adjustedPixelSpacing1 = info1.PixelSpacing * step;
-adjustedPixelSpacing2 = info2.PixelSpacing * step;
-
-adjustedSliceThickness1 = info1.SliceThickness * step;
-adjustedSliceThickness2 = info2.SliceThickness * step;
-
-ref1_down = imref3d(size(fixedShell), ...
-    adjustedPixelSpacing1(1), ...
-    adjustedPixelSpacing1(2), ...
-    adjustedSliceThickness1);
-
-ref2_down = imref3d(size(movingShell), ...
-    adjustedPixelSpacing2(1), ...
-    adjustedPixelSpacing2(2), ...
-    adjustedSliceThickness2);
+fRef = createRef(info1, fixedShell, step);
+mRef = createRef(info2, movingShell, step);
 
 %% Bayesian Optimization with Improvements
 disp('Starting Bayesian Optimization...');
@@ -90,7 +58,7 @@ end
 %     'VariableNames', {'GradientMagnitudeTolerance', 'MinimumStepLength', 'MaximumStepLength', ...
 %                       'MaximumIterations', 'RelaxationFactor', 'PyramidLevel'});
 
-results = bayesopt(@(params)objFcn(params, movingShell, ref2_down, fixedShell, ref1_down), ...
+results = bayesopt(@(params)objFcn(params, movingShell, mRef, fixedShell, fRef), ...
     [optimizableVariable('GradientMagnitudeTolerance', [1e-10, 1e-3], 'Transform', 'log'), ...
      optimizableVariable('MinimumStepLength', [1e-10, 1e-3], 'Transform', 'log'), ...
      optimizableVariable('MaximumStepLength', [1e-6, 1e-1], 'Transform', 'log'), ...
@@ -116,16 +84,16 @@ optimizer.MaximumIterations = results.XAtMinObjective.MaximumIterations;
 optimizer.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
 
 bestPyramidLevel = results.XAtMinObjective.PyramidLevel;
-tform = imregtform(movingShell, ref2_down, fixedShell, ...
-    ref1_down, 'affine', optimizer, metric, ...
+tform = imregtform(movingShell, mRef, fixedShell, ...
+    fRef, 'affine', optimizer, metric, ...
     'PyramidLevels', bestPyramidLevel);
 
-registeredImage = imwarp(movingShell, ref2_down, tform, 'OutputView', ref1_down);
+registeredImage = imwarp(movingShell, mRef, tform, 'OutputView', fRef);
 
 interactiveRegVis(registeredImage, fixedShell, 'z');
 
 %% Objective Function Definition
-function score = objFcn(params, movingShell, ref2_down, fixedShell, ref1_down)
+function score = objFcn(params, movingShell, mRef, fixedShell, fRef)
     try
         [optimizer, metric] = imregconfig('monomodal');
         optimizer.GradientMagnitudeTolerance = params.GradientMagnitudeTolerance;
@@ -134,11 +102,11 @@ function score = objFcn(params, movingShell, ref2_down, fixedShell, ref1_down)
         optimizer.MaximumIterations = params.MaximumIterations;
         optimizer.RelaxationFactor = params.RelaxationFactor;
 
-        tform = imregtform(movingShell, ref2_down, fixedShell, ...
-            ref1_down, 'affine', optimizer, metric, ...
+        tform = imregtform(movingShell, mRef, fixedShell, ...
+            fRef, 'affine', optimizer, metric, ...
             'PyramidLevels', params.PyramidLevel);
-        registeredImage = imwarp(movingShell, ref2_down, tform, ...
-            'OutputView', ref1_down);
+        registeredImage = imwarp(movingShell, mRef, tform, ...
+            'OutputView', fRef);
 
         overlap = 2 * nnz(fixedShell & registeredImage) / (nnz(fixedShell) + nnz(registeredImage));
         score = -overlap;

@@ -4,35 +4,42 @@ clear; clc; close all;
 dicomFolder1 = '../Data/20240910/series/';
 dicomFolder2 = '../Data/20241007/series/';
 
-files1 = dir(fullfile(dicomFolder1, '*.dcm'));
-files2 = dir(fullfile(dicomFolder2, '*.dcm'));
-
-disp('Scanning Image 1...');
-scan1 = [];
-for i = 1:length(files1)
-    slice = dicomread(fullfile(files1(i).folder, files1(i).name));
-    tmp_info = dicominfo(fullfile(files1(i).folder, files1(i).name));
-    sliceloc1(i)=tmp_info.SliceLocation;
-    scan1(:, :, i) = slice;        
-end
-
-%%
-figure;
-plot(diff(sliceloc1));
-
-%%
-disp('Scanning Image 2...');
-scan2 = [];
-for i = 1:length(files2)
-    slice = dicomread(fullfile(files2(i).folder, files2(i).name));
-    scan2(:, :, i) = slice;
-end
-
-info1 = dicominfo(fullfile(files1(1).folder, files1(1).name));
-info2 = dicominfo(fullfile(files2(1).folder, files2(1).name));
-
-im1_rescaled = info1.RescaleSlope * scan1 + info1.RescaleIntercept;
-im2_rescaled = info2.RescaleSlope * scan2 + info2.RescaleIntercept;
+% files1 = dir(fullfile(dicomFolder1, '*.dcm'));
+% files2 = dir(fullfile(dicomFolder2, '*.dcm'));
+% 
+% disp('Scanning Image 1...');
+% scan1 = [];
+% for i = 1:length(files1)
+%     slice = dicomread(fullfile(files1(i).folder, files1(i).name));
+%     tmp_info = dicominfo(fullfile(files1(i).folder, files1(i).name));
+%     sliceloc1(i)=tmp_info.SliceLocation;
+%     scan1(:, :, i) = slice;        
+% end
+% 
+% %%
+% figure;
+% plot(diff(sliceloc1));
+% 
+% % find absolute value of avg then replace adjustedSliceThickness with this
+% 
+% 
+% %%
+% disp('Scanning Image 2...');
+% scan2 = [];
+% for i = 1:length(files2)
+%     slice = dicomread(fullfile(files2(i).folder, files2(i).name));
+%     scan2(:, :, i) = slice;
+% end
+% 
+% info1 = dicominfo(fullfile(files1(1).folder, files1(1).name));
+% info2 = dicominfo(fullfile(files2(1).folder, files2(1).name));
+% 
+% im1_rescaled = info1.RescaleSlope * scan1 + info1.RescaleIntercept;
+% im2_rescaled = info2.RescaleSlope * scan2 + info2.RescaleIntercept;
+% 
+% %%
+[im1, info1, SliceThickness1] = loadDicom3D(dicomFolder1);
+[im2, info2, SliceThickness2] = loadDicom3D(dicomFolder2);
 
 %% Threshold & Downsample Images
 disp('Thresholding images...');
