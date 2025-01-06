@@ -2,7 +2,7 @@ clear; clc; close all;
 
 %% Load Info and Image
 dicomFolder1 = '../Data/20240910/series/';
-dicomFolder2 = '../Data/20241007/series/';
+dicomFolder2 = '../Data/20240830_rev/series/';
 
 warning('off', 'MATLAB:DELETE:Permission');
 
@@ -10,31 +10,37 @@ disp('Scanning Images...');
 [im1, info1] = loadDicom3D(dicomFolder1);
 [im2, info2] = loadDicom3D(dicomFolder2);
 
+%% Crop Images
+im1_cropped = im1(420:500, 200:300, 440);
+im2_cropped = im2(420:500, 200:300, 440);
+
+figure;
+imshowpair(im1_cropped, im2_cropped, 'falsecolor');
 %% Threshold & Downsample Images
 disp('Thresholding images...');
 threshold = 500;
-imBW1 = im1 > threshold;
-imBW2 = im2 > threshold;
+imBW1 = im1_cropped > threshold;
+imBW2 = im2_cropped > threshold;
 
 scale = 10;
 
 imBW1_double = double(imBW1) * scale;
 imBW2_double = double(imBW2) * scale;
 
-step = 4;
-fixedImageBW_down = imBW1_double(1:step:end, 1:step:end, 1:step:end);
-movingImageBW_down = imBW2_double(1:step:end, 1:step:end, 1:step:end);
-
-im1_down = im1(1:step:end, 1:step:end, 1:step:end);
-im2_down = im2(1:step:end, 1:step:end, 1:step:end);
+% step = 4;
+% fixedImageBW_down = imBW1_double(1:step:end, 1:step:end, 1:step:end);
+% movingImageBW_down = imBW2_double(1:step:end, 1:step:end, 1:step:end);
+% 
+% im1_down = im1(1:step:end, 1:step:end, 1:step:end);
+% im2_down = im2(1:step:end, 1:step:end, 1:step:end);
 
 %% Get References
-shell = find(any(any(fixedImageBW_down > 0, 1), 2));
-fixedShell = fixedImageBW_down(:, :, shell);
-movingShell = movingImageBW_down(:, :, shell);
+shell = find(any(any(imBW1_double > 0, 1), 2));
+fixedShell = imBW1_double(:, :, shell);
+movingShell = imBW2_double(:, :, shell);
 
-fRef = createRef(info1, fixedShell, step);
-mRef = createRef(info2, movingShell, step);
+fRef = createRef(info1, fixedShell);
+mRef = createRef(info2, movingShell);
 
 %% Bayesian Optimization with Improvements
 disp('Starting Bayesian Optimization...');
@@ -69,7 +75,7 @@ results = bayesopt(@(params)objFcn(params, movingShell, mRef, fixedShell, fRef),
      optimizableVariable('PyramidLevel', [1, 5], 'Type', 'integer')], ...
     'Verbose', 1, ...
     'AcquisitionFunctionName', 'expected-improvement-plus', ...
-    'MaxObjectiveEvaluations', 200, ...
+    'MaxObjectiveEvaluations', 100, ...
     'UseParallel', true, ...
     'InitialX', initialX);
 
@@ -87,7 +93,7 @@ optimizer.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
 
 bestPyramidLevel = results.XAtMinObjective.PyramidLevel;
 tform = imregtform(movingShell, mRef, fixedShell, ...
-    fRef, 'affine', optimizer, metric, ...
+    fRef, 'similarity', optimizer, metric, ...
     'PyramidLevels', bestPyramidLevel);
 
 registeredImage = imwarp(movingShell, mRef, tform, 'OutputView', fRef);
@@ -105,7 +111,7 @@ function score = objFcn(params, movingShell, mRef, fixedShell, fRef)
         optimizer.RelaxationFactor = params.RelaxationFactor;
 
         tform = imregtform(movingShell, mRef, fixedShell, ...
-            fRef, 'affine', optimizer, metric, ...
+            fRef, 'similarity', optimizer, metric, ...
             'PyramidLevels', params.PyramidLevel);
         registeredImage = imwarp(movingShell, mRef, tform, ...
             'OutputView', fRef);

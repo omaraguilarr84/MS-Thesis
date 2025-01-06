@@ -2,7 +2,7 @@ clear; clc; close all;
 
 %% Load Info and Image
 dicomFolder1 = '../Data/20240910/series/';
-dicomFolder2 = '../Data/20241007/series/';
+dicomFolder2 = '../Data/20240830_rev/series/';
 
 warning('off', 'MATLAB:DELETE:Permission');
 
@@ -11,17 +11,8 @@ disp('Scanning Images...');
 [im2, info2] = loadDicom3D(dicomFolder2);
 
 %% Crop Images
-im1_cropped = im1(440:end, 230:270, :); % how will i revert back if they are not the same size
-im2_cropped = im2(440:end, 220:270, :);
-
-% figure;
-% subplot(2, 1, 1);
-% imshow(im1_cropped, []);
-% 
-% subplot(2, 1, 2);
-% imshow(im2_cropped, []);
-
-interactiveRegVis(im1_cropped, im2_cropped, 'z');
+im1_cropped = im1(420:500, 200:300, 440);
+im2_cropped = im2(420:500, 200:300, 440);
 
 %% Threshold & Downsample Images
 disp('Thresholding images...');
@@ -29,7 +20,7 @@ threshold = 500;
 imBW1 = im1_cropped > threshold;
 imBW2 = im2_cropped > threshold;
 
-scale = 10;
+scale = 100;
 
 imBW1_double = double(imBW1) * scale;
 imBW2_double = double(imBW2) * scale;
@@ -45,34 +36,43 @@ imBW2_double = double(imBW2) * scale;
 shell = find(any(any(imBW1_double > 0, 1), 2));
 fixedShell = imBW1_double(:, :, shell);
 movingShell = imBW2_double(:, :, shell);
-
-fRef = createRef(info1, fixedShell);
-mRef = createRef(info2, movingShell);
+% 
+% fRef = createRef3D(info1, fixedShell);
+% mRef = createRef3D(info2, movingShell);
 
 %% Registration
 [optimizer, metric] = imregconfig('monomodal');
 optimizer.GradientMagnitudeTolerance = 1e-3;
 optimizer.MinimumStepLength = 1e-9;
-optimizer.MaximumStepLength = 6.25e-3;
-optimizer.MaximumIterations = 300;
+optimizer.MaximumStepLength = 1e-4;
+optimizer.MaximumIterations = 1000;
 optimizer.RelaxationFactor = 0.6;
 
 PyramidLevel = 3;
-tform = imregtform(movingShell, mRef, fixedShell, ...
-    fRef, 'affine', optimizer, metric, ...
+% registeredImage = imregister(movingShell, fixedShell, ...
+%     'affine', optimizer, metric, ...
+%     'PyramidLevels', PyramidLevel, 'DisplayOptimization', true);
+
+tform = imregtform(movingShell, fixedShell, ...
+    'similarity', optimizer, metric, ...
     'PyramidLevels', PyramidLevel, 'DisplayOptimization', true);
 
 clc;
 delete('optimization_log.txt');
 diary('optimization_log.txt');
 
-registeredImage = imwarp(movingShell, mRef, tform, 'OutputView', fRef);
+registeredImage = imwarp(movingShell, tform, 'OutputView', imref2d(size(fixedShell)));
 
 diary off;
 
 %% Evaluation Metric
-overlap = 2 * nnz(fixedShell & registeredImage) / (nnz(fixedShell) + nnz(registeredImage));
+% overlap = 2 * nnz(fixedShell & registeredImage) / (nnz(fixedShell) + nnz(registeredImage));
+overlap = computeDice3D(fixedShell, registeredImage);
 disp(['Dice Coefficient: ', num2str(overlap)]);
 
+%% Visualize
+figure;
+imshowpair(fixedShell, registeredImage, 'Scaling', 'joint');
+
 %% Interactive Visualization
-interactiveRegVis(registeredImage, fixedShell, 'z');
+% interactiveRegVis(registeredImage, fixedShell, 'z');

@@ -1,0 +1,338 @@
+Error using <a href="matlab:matlab.internal.language.introspective.errorDocCallback('imref3d')" style="font-weight:bold">imref3d</a>
+ImageSize must have three elements.
+
+Error in <a href="matlab:matlab.internal.language.introspective.errorDocCallback('AvoA_register', 'C:\Users\AMIRLAB\Documents\OA\MS-Thesis\AvoA\Scripts\AvoA_register.m', 64)" style="font-weight:bold">AvoA_register</a> (<a href="matlab: opentoline('C:\Users\AMIRLAB\Documents\OA\MS-Thesis\AvoA\Scripts\AvoA_register.m',64,0)">line 64</a>)
+registeredImage = imwarp(movingShell, tform, 'OutputView', imref3d(size(fixedShell)));
+
+
+Minimizing Mean Square Error...
+
+Pyramid Level: 1
+
+Iteration    Mean Square Error
+1            498.8027      
+2            460.6033      
+3            466.2497      
+4            456.8724      
+5            450.3984      
+6            473.9617      
+7            464.9790      
+8            460.8496      
+9            455.7542      
+10           476.9615      
+11           484.5145      
+12           500.7596      
+13           495.2146      
+14           473.0471      
+15           457.2177      
+16           455.9533      
+17           453.4888      
+18           451.5365      
+19           449.5652      
+20           447.9344      
+21           448.1493      
+22           441.8001      
+23           437.9543      
+24           442.7229      
+25           448.6127      
+26           452.5362      
+27           451.2531      
+28           450.5790      
+29           450.0154      
+30           449.7589      
+31           453.1703      
+32           456.8830      
+33           459.3463      
+34           463.7446      
+35           466.5979      
+36           468.6920      
+37           474.1337      
+38           477.9034      
+39           482.7822      
+40           484.6748      
+41           486.3689      
+42           492.4622      
+43           497.3812      
+44           504.2419      
+45           505.9885      
+46           503.1083      
+47           500.2205      
+48           497.8497      
+49           495.4926      
+50           492.4966      
+51           489.8885      
+52           488.0427      
+53           486.7484      
+54           485.5676      
+55           485.5161      
+56           490.0984      
+57           494.9914      
+58           499.2038      
+59           503.4654      
+60           506.2240      
+61           511.3005      
+62           508.8553      
+63           504.2907      
+64           498.5107      
+65           490.7902      
+66           483.4163      
+67           476.6190      
+68           470.3669      
+69           464.8942      
+70           460.0323      
+71           455.5215      
+72           451.2072      
+73           446.7431      
+74           442.5587      
+75           438.5974      
+76           435.2042      
+77           432.2401      
+78           435.5448      
+79           460.4176      
+80           458.4550      
+81           456.7410      
+82           455.2915      
+83           454.4643      
+84           453.5436      
+85           451.8848      
+86           450.8015      
+87           447.4870      
+88           442.0278      
+89           436.7416      
+90           432.5842      
+91           431.2906      
+92           431.3836      
+93           445.8449      
+94           456.7443      
+95           468.2370      
+96           470.6518      
+97           473.2329      
+98           476.4337      
+99           480.0590      
+100          482.7284      
+
+Stopping condition:
+    RegularStepGradientDescentOptimizer: Maximum number of iterations (100) exceeded.
+
+Pyramid Level: 2
+
+Iteration    Mean Square Error
+1            626.6093      
+2            628.1318      
+3            628.8358      
+4            629.2683      
+5            629.5825      
+6            630.5215      
+7            630.7301      
+8            630.8493      
+9            630.8715      
+10           631.6681      
+11           631.7451      
+12           632.5360      
+13           633.3783      
+14           633.3063      
+15           633.9209      
+16           633.8922      
+17           635.4511      
+18           635.4713      
+19           636.2642      
+20           637.1709      
+21           636.5342      
+22           635.9327      
+23           635.4181      
+24           634.9527      
+25           634.6290      
+26           635.1311      
+27           634.8165      
+28           634.5893      
+29           634.3838      
+30           634.1642      
+31           633.9581      
+32           633.6975      
+33           633.3337      
+34           632.9330      
+35           632.3991      
+36           631.6562      
+37           630.9258      
+38           630.2459      
+39           628.7807      
+40           627.9707      
+41           627.2016      
+42           626.5169      
+43           625.8338      
+44           624.3984      
+45           623.6881      
+46           622.8559      
+47           621.8672      
+48           620.8194      
+49           619.8404      
+50           618.2999      
+51           617.4999      
+52           616.7306      
+53           616.0323      
+54           615.4172      
+55           614.5166      
+56           613.6726      
+57           612.9521      
+58           612.9569      
+59           612.2337      
+60           611.4109      
+61           610.6184      
+62           609.8733      
+63           609.1670      
+64           607.7528      
+65           607.1293      
+66           606.5744      
+67           615.9150      
+68           622.4901      
+69           626.2765      
+70           630.2985      
+71           631.0765      
+72           631.2292      
+73           631.3776      
+74           631.1294      
+75           631.0377      
+76           631.5102      
+77           631.2986      
+78           631.2565      
+79           631.2892      
+80           631.3191      
+81           632.2150      
+82           632.3643      
+83           633.0963      
+84           633.1297      
+85           633.2246      
+86           633.4310      
+87           633.6851      
+88           633.6055      
+89           633.5369      
+90           633.5235      
+91           634.3144      
+92           633.9710      
+93           634.5361      
+94           634.3087      
+95           634.7910      
+96           634.4332      
+97           634.8428      
+98           635.2900      
+99           635.7939      
+100          635.5689      
+
+Stopping condition:
+    RegularStepGradientDescentOptimizer: Maximum number of iterations (100) exceeded.
+
+Pyramid Level: 3
+
+Iteration    Mean Square Error
+1            973.7593      
+2            973.6086      
+3            973.4707      
+4            973.6776      
+5            973.5689      
+6            973.4699      
+7            973.6796      
+8            973.5736      
+9            973.4306      
+10           973.2889      
+11           973.4700      
+12           973.6491      
+13           973.5488      
+14           973.4438      
+15           973.2832      
+16           973.4165      
+17           973.2253      
+18           973.0132      
+19           972.7928      
+20           973.1870      
+21           972.9811      
+22           972.7601      
+23           972.5311      
+24           972.3040      
+25           972.3688      
+26           972.1281      
+27           971.8974      
+28           971.9932      
+29           972.0959      
+30           971.8881      
+31           971.6565      
+32           971.7438      
+33           971.8563      
+34           971.6614      
+35           971.4752      
+36           971.2993      
+37           971.4318      
+38           971.5606      
+39           971.3986      
+40           971.2473      
+41           971.4148      
+42           971.5892      
+43           971.4404      
+44           971.2950      
+45           971.4602      
+46           971.6152      
+47           971.4631      
+48           971.3005      
+49           971.4502      
+50           971.6012      
+51           971.4300      
+52           971.2468      
+53           971.3694      
+54           971.1703      
+55           970.9716      
+56           971.0781      
+57           971.1657      
+58           970.9172      
+59           970.6571      
+60           970.7080      
+61           970.4468      
+62           970.1907      
+63           970.2485      
+64           970.2700      
+65           969.9788      
+66           969.6469      
+67           969.6314      
+68           969.3037      
+69           969.2812      
+70           968.9491      
+71           969.2333      
+72           969.5161      
+73           969.8147      
+74           970.1060      
+75           970.0922      
+76           970.3912      
+77           971.0036      
+78           970.9835      
+79           971.2788      
+80           971.5641      
+81           971.8195      
+82           971.7593      
+83           972.3115      
+84           972.5140      
+85           973.0147      
+86           973.5054      
+87           974.0019      
+88           974.7734      
+89           975.2407      
+90           976.0361      
+91           976.8333      
+92           978.2838      
+93           979.7514      
+94           981.5442      
+95           983.3750      
+96           983.9516      
+97           983.5574      
+98           983.4438      
+99           983.3437      
+100          982.9230      
+
+Stopping condition:
+    RegularStepGradientDescentOptimizer: Maximum number of iterations (100) exceeded.
+Error using <a href="matlab:matlab.internal.language.introspective.errorDocCallback('imwarp>checkOutputViewAgreementWithTform')" style="font-weight:bold">imwarp>checkOutputViewAgreementWithTform</a>
+Dimensionality of specified geometric transformation must match dimensionality of 'OutputView'.
+
+Error in <a href="matlab:matlab.internal.language.introspective.errorDocCallback('imwarp', 'C:\Program Files\MATLAB\R2022a\toolbox\images\images\imwarp.m', 235)" style="font-weight:bold">imwarp</a> (<a href="matlab: opentoline('C:\Program Files\MATLAB\R2022a\toolbox\images\images\imwarp.m',235,0)">line 235</a>)
+    checkOutputViewAgreementWithTform(outputRef,tform);
+
+Error in <a href="matlab:matlab.internal.language.introspective.errorDocCallback('AvoA_register', 'C:\Users\AMIRLAB\Documents\OA\MS-Thesis\AvoA\Scripts\AvoA_register.m', 64)" style="font-weight:bold">AvoA_register</a> (<a href="matlab: opentoline('C:\Users\AMIRLAB\Documents\OA\MS-Thesis\AvoA\Scripts\AvoA_register.m',64,0)">line 64</a>)
+registeredImage = imwarp(movingShell, tform, 'OutputView', imref2d(size(fixedShell)));
+
