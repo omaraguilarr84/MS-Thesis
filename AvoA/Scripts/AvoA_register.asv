@@ -11,8 +11,8 @@ disp('Scanning Images...');
 [im2, info2] = loadDicom3D(dicomFolder2);
 
 %% Crop Images
-im1_cropped = im1(440:end, 230:270, :); % how will i revert back if they are not the same size
-im2_cropped = im2(440:end, 220:270, :);
+im1_cropped = im1(450:end, 230:270, 400:460); % how will i revert back if they are not the same size
+im2_cropped = im2(450:end, 220:270, 400:460);
 
 % figure;
 % subplot(2, 1, 1);
@@ -26,8 +26,8 @@ interactiveRegVis(im1_cropped, im2_cropped, 'z');
 %% Threshold & Downsample Images
 disp('Thresholding images...');
 threshold = 500;
-imBW1 = im1_cropped > threshold;
-imBW2 = im2_cropped > threshold;
+imBW1 = im1 > threshold;
+imBW2 = im2 > threshold;
 
 scale = 10;
 
@@ -37,17 +37,17 @@ imBW2_double = double(imBW2) * scale;
 % step = 4;
 % fixedImageBW_down = imBW1_double(1:step:end, 1:step:end, 1:step:end);
 % movingImageBW_down = imBW2_double(1:step:end, 1:step:end, 1:step:end);
-% 
-% im1_down = im1(1:step:end, 1:step:end, 1:step:end);
-% im2_down = im2(1:step:end, 1:step:end, 1:step:end);
+
+im1_down = im1(1:step:end, 1:step:end, 1:step:end);
+im2_down = im2(1:step:end, 1:step:end, 1:step:end);
 
 %% Get References
-shell = find(any(any(imBW1_double > 0, 1), 2));
-fixedShell = imBW1_double(:, :, shell);
-movingShell = imBW2_double(:, :, shell);
+shell = find(any(any(imBW_down > 0, 1), 2));
+fixedShell = fixedImageBW_down(:, :, shell);
+movingShell = movingImageBW_down(:, :, shell);
 
-fRef = createRef(info1, fixedShell);
-mRef = createRef(info2, movingShell);
+fRef = createRef(info1, fixedShell, step);
+mRef = createRef(info2, movingShell, step);
 
 %% Registration
 [optimizer, metric] = imregconfig('monomodal');
