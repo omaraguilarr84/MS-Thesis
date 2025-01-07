@@ -16,6 +16,7 @@ function [im, info] = loadDicom3D(imFolderPath)
     SliceThickness = abs(mean(dSL));
 
     info = dicominfo(fullfile(files(1).folder, files(1).name));
-    im = info.RescaleSlope * scan + info.RescaleIntercept;
+    % im = info.RescaleSlope * scan + info.RescaleIntercept;
     info.SliceThickness = SliceThickness;
+    im = scan;
 end

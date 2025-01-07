@@ -336,3 +336,15 @@ Error in <a href="matlab:matlab.internal.language.introspective.errorDocCallback
 Error in <a href="matlab:matlab.internal.language.introspective.errorDocCallback('AvoA_register', 'C:\Users\AMIRLAB\Documents\OA\MS-Thesis\AvoA\Scripts\AvoA_register.m', 64)" style="font-weight:bold">AvoA_register</a> (<a href="matlab: opentoline('C:\Users\AMIRLAB\Documents\OA\MS-Thesis\AvoA\Scripts\AvoA_register.m',64,0)">line 64</a>)
 registeredImage = imwarp(movingShell, tform, 'OutputView', imref2d(size(fixedShell)));
 
+Error using <a href="matlab:matlab.internal.language.introspective.errorDocCallback('imwarp>checkOutputViewAgreementWithTform')" style="font-weight:bold">imwarp>checkOutputViewAgreementWithTform</a>
+Dimensionality of specified geometric transformation must match dimensionality of 'OutputView'.
+
+Error in <a href="matlab:matlab.internal.language.introspective.errorDocCallback('imwarp', 'C:\Program Files\MATLAB\R2022a\toolbox\images\images\imwarp.m', 235)" style="font-weight:bold">imwarp</a> (<a href="matlab: opentoline('C:\Program Files\MATLAB\R2022a\toolbox\images\images\imwarp.m',235,0)">line 235</a>)
+    checkOutputViewAgreementWithTform(outputRef,tform);
+
+Error in <a href="matlab:matlab.internal.language.introspective.errorDocCallback('AvoA_register', 'C:\Users\AMIRLAB\Documents\OA\MS-Thesis\AvoA\Scripts\AvoA_register.m', 67)" style="font-weight:bold">AvoA_register</a> (<a href="matlab: opentoline('C:\Users\AMIRLAB\Documents\OA\MS-Thesis\AvoA\Scripts\AvoA_register.m',67,0)">line 67</a>)
+registeredImage = imwarp(movingShell, tform, 'OutputView', imref2d(size(fixedShell)));
+
+registeredImage = imwarp(movingShell, tform, 'OutputView', imref3d(size(fixedShell)));
+
+diary off;

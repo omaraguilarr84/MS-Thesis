@@ -11,18 +11,16 @@ disp('Scanning Images...');
 [im2, info2] = loadDicom3D(dicomFolder2);
 
 %% Crop Images
-im1_cropped = im1(420:500, 200:300, 440);
-im2_cropped = im2(420:500, 200:300, 440);
+im1_cropped = im1(400:500, 200:300, :);
+im2_cropped = im2(400:500, 200:300, :);
 
-figure;
-imshowpair(im1_cropped, im2_cropped, 'falsecolor');
 %% Threshold & Downsample Images
 disp('Thresholding images...');
-threshold = 500;
+threshold = 1200;
 imBW1 = im1_cropped > threshold;
 imBW2 = im2_cropped > threshold;
 
-scale = 10;
+scale = 100;
 
 imBW1_double = double(imBW1) * scale;
 imBW2_double = double(imBW2) * scale;
@@ -35,12 +33,9 @@ imBW2_double = double(imBW2) * scale;
 % im2_down = im2(1:step:end, 1:step:end, 1:step:end);
 
 %% Get References
-shell = find(any(any(imBW1_double > 0, 1), 2));
+shell = find(any(any(imBW2_double > 0, 1), 2));
 fixedShell = imBW1_double(:, :, shell);
 movingShell = imBW2_double(:, :, shell);
-
-fRef = createRef(info1, fixedShell);
-mRef = createRef(info2, movingShell);
 
 %% Bayesian Optimization with Improvements
 disp('Starting Bayesian Optimization...');
@@ -57,20 +52,20 @@ else
 end
 
 initialX = table( ...
-    1e-6, ...      % GradientMagnitudeTolerance
-    1e-4, ...    % MinimumStepLength
-    6.25e-3, ...     % MaximumStepLength
-    300, ...       % MaximumIterations
+    1e-3, ...      % GradientMagnitudeTolerance
+    1e-9, ...    % MinimumStepLength
+    1e-2, ...     % MaximumStepLength
+    1000, ...       % MaximumIterations
     0.6, ...       % RelaxationFactor
-    2, ...         % PyramidLevel
+    4, ...         % PyramidLevel
     'VariableNames', {'GradientMagnitudeTolerance', 'MinimumStepLength', 'MaximumStepLength', ...
                       'MaximumIterations', 'RelaxationFactor', 'PyramidLevel'});
 
-results = bayesopt(@(params)objFcn(params, movingShell, mRef, fixedShell, fRef), ...
+results = bayesopt(@(params)objFcn(params, movingShell, fixedShell), ...
     [optimizableVariable('GradientMagnitudeTolerance', [1e-10, 1e-3], 'Transform', 'log'), ...
      optimizableVariable('MinimumStepLength', [1e-10, 1e-3], 'Transform', 'log'), ...
      optimizableVariable('MaximumStepLength', [1e-6, 1e-1], 'Transform', 'log'), ...
-     optimizableVariable('MaximumIterations', [50, 500], 'Type', 'integer'), ...
+     optimizableVariable('MaximumIterations', [50, 1500], 'Type', 'integer'), ...
      optimizableVariable('RelaxationFactor', [0.3, 0.8]), ...
      optimizableVariable('PyramidLevel', [1, 5], 'Type', 'integer')], ...
     'Verbose', 1, ...
@@ -92,16 +87,27 @@ optimizer.MaximumIterations = results.XAtMinObjective.MaximumIterations;
 optimizer.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
 
 bestPyramidLevel = results.XAtMinObjective.PyramidLevel;
-tform = imregtform(movingShell, mRef, fixedShell, ...
-    fRef, 'similarity', optimizer, metric, ...
+tform = imregtform(movingShell, fixedShell, ...
+    'affine', optimizer, metric, ...
     'PyramidLevels', bestPyramidLevel);
 
-registeredImage = imwarp(movingShell, mRef, tform, 'OutputView', fRef);
+registeredImage = imwarp(movingShell, tform, 'OutputView', ...
+    imref3d(size(fixedShell)));
 
+%% Evaluation
 interactiveRegVis(registeredImage, fixedShell, 'z');
 
+overlap = computeDice3D(fixedShell, registeredImage);
+disp(['Dice Coefficient: ', num2str(overlap)]);
+
+hd = computeHausdorffDistance(registeredImage, fixedShell);
+disp(['Haussdorff Distance: ', num2str(hd)]);
+
+norm_hd = hd / sqrt(size(fixedShell, 1)^2 + size(fixedShell, 2)^2 + size(fixedShell, 3)^2);
+disp(['Normalized HD: ', num2str(norm_hd)]);
+
 %% Objective Function Definition
-function score = objFcn(params, movingShell, mRef, fixedShell, fRef)
+function score = objFcn(params, movingShell, fixedShell)
     try
         [optimizer, metric] = imregconfig('monomodal');
         optimizer.GradientMagnitudeTolerance = params.GradientMagnitudeTolerance;
@@ -110,11 +116,11 @@ function score = objFcn(params, movingShell, mRef, fixedShell, fRef)
         optimizer.MaximumIterations = params.MaximumIterations;
         optimizer.RelaxationFactor = params.RelaxationFactor;
 
-        tform = imregtform(movingShell, mRef, fixedShell, ...
-            fRef, 'similarity', optimizer, metric, ...
+        tform = imregtform(movingShell, fixedShell, ...
+            'affine', optimizer, metric, ...
             'PyramidLevels', params.PyramidLevel);
-        registeredImage = imwarp(movingShell, mRef, tform, ...
-            'OutputView', fRef);
+        registeredImage = imwarp(movingShell, tform, ...
+            'OutputView', imref3d(size(fixedShell)));
 
         overlap = 2 * nnz(fixedShell & registeredImage) / (nnz(fixedShell) + nnz(registeredImage));
         score = -overlap;
