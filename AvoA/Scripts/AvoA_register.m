@@ -17,8 +17,11 @@ im2_cropped = im2(400:500, 200:300, :);
 %% Threshold & Downsample Images
 disp('Thresholding images...');
 threshold = 1200;
-imBW1 = im1_cropped > threshold;
-imBW2 = im2_cropped > threshold;
+% imBW1 = im1_cropped > threshold;
+% imBW2 = im2_cropped > threshold;
+
+imBW1 = im1 > threshold;
+imBW2 = im2 > threshold;
 
 scale = 100;
 
@@ -34,20 +37,23 @@ imBW2_double = double(imBW2) * scale;
 
 %% Get References
 shell = find(any(any(imBW2_double > 0, 1), 2));
-fixedShell = imBW1_double(:, :, shell);
-movingShell = imBW2_double(:, :, shell);
-% 
+% fixedShell = imBW1_double(:, :, shell);
+% movingShell = imBW2_double(:, :, shell);
+
+fixedShell = imBW1_double(:, :, :);
+movingShell = imBW2_double(:, :, :);
+
 % fRef = createRef3D(info1, fixedShell);
 % mRef = createRef3D(info2, movingShell);
 
-% fRef = imref2d(size(fixedShell));
-% mRef = imref2d(size(movingShell));
+fRef = imref3d(size(fixedShell));
+mRef = imref3d(size(movingShell));
 
 %% Registration
 [optimizer, metric] = imregconfig('monomodal');
 optimizer.GradientMagnitudeTolerance = 1e-3;
 optimizer.MinimumStepLength = 1e-9;
-optimizer.MaximumStepLength = 1e-2;
+optimizer.MaximumStepLength = 1e-4;
 optimizer.MaximumIterations = 1000;
 optimizer.RelaxationFactor = 0.6;
 
@@ -60,7 +66,7 @@ tform = imregtform(movingShell, fixedShell, ...
     'affine', optimizer, metric, ...
     'PyramidLevels', PyramidLevel, 'DisplayOptimization', true);
 
-registeredImage = imwarp(movingShell, tform, 'OutputView', imref3d(size(fixedShell)));
+registeredImage = imwarp(movingShell, tform, 'OutputView', fref);
 
 % tform = imregcorr(movingShell, mRef, fixedShell, fRef, 'similarity', 'Window', true);
 % 
@@ -85,3 +91,11 @@ disp(['Normalized HD: ', num2str(norm_hd)]);
 
 %% Interactive Visualization
 interactiveRegVis(registeredImage, fixedShell, 'z');
+
+%% Apply to Whole Image
+% outputView = affineOutputView(size(fixedShellFull), tform, 'BoundsStyle', 'sameAsInput');
+% registeredImageFull = imwarp(movingShellFull, tform, 'OutputView', outputView);
+% 
+% interactiveRegVis(registeredImageFull, fixedShellFull, 'z');
+% overlap = computeDice3D(fixedShellFull, registeredImageFull);
+% disp(['Dice Coefficient (Full): ', num2str(overlap)]);

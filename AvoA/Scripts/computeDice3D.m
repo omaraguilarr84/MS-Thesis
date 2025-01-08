@@ -1,5 +1,4 @@
 function diceScore = computeDice3D(fixed, moving)
-    % Ensure both inputs are binary volumes (logical)
     if ~islogical(fixed)
         fixed = imbinarize(fixed);
     end
@@ -7,13 +6,11 @@ function diceScore = computeDice3D(fixed, moving)
         moving = imbinarize(moving);
     end
 
-    % Compute intersection and total voxel counts
     intersection = sum(fixed(:) & moving(:));
     totalVoxels = sum(fixed(:)) + sum(moving(:));
 
-    % Handle division by zero
     if totalVoxels == 0
-        diceScore = 1; % Perfect match for empty volumes
+        diceScore = 1;
     else
         diceScore = (2 * intersection) / totalVoxels;
     end

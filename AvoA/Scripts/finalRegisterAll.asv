@@ -1,0 +1,56 @@
+clear; clc; close all;
+
+% Base Directories
+dataFolder = '../Data/';
+outputFolder = '../RegisteredData/';
+
+% Retrieve Subfolders
+subfolders = dir(dataFolder);
+subfolders = subfolders([subfolders.isdir]);
+subfolders = subfolders(~ismember({subfolders.name}, {'.', '..'}));
+
+% Sort By Date
+dates = {subfolders.name};
+dates = sort(dates);
+
+% Use earliest dates as fixed
+fixedDate = dates{1};
+fixedPath = fullfile(dataFolder, fixedDate, 'series');
+[fixedImage, fInfo] = loadDicom3D(fixedPath);
+
+if ~exist(outputFolder, 'dir')
+    mkdir(outputFolder);
+end
+
+scores = table('Size', [length(dates)-1, 4], ...
+    'VariableTypes', {'string', 'double', 'double', 'double'}, ...
+    'VariableNames', {'MovingDate', 'Dice', ...
+    'HD', 'Norm HD'});
+
+for i = 2:length(dates)
+    movingDate = dates{i};
+    movingPath = fullfile(dataFolder, movingDate, 'series');
+    [movingImage, mInfo] = loadDicom3D(movingPath);
+    
+    maxObjectiveEvals = 100;
+    useParallel = true;
+    results = bayesianOptimizer3D(fixedImage, movingImage, ...
+        maxObjectiveEvals, useParallel);
+
+    [optimizer, metric] = imregconfig('monomodal');
+    optimizer.GradientMagnitudeTolerance = results.XAtMinObjective.GradientMagnitudeTolerance;
+    optimizer.MinimumStepLength = results.XAtMinObjective.MinimumStepLength;
+    optimizer.MaximumStepLength = results.XAtMinObjective.MaximumStepLength;
+    optimizer.MaximumIterations = results.XAtMinObjective.MaximumIterations;
+    optimizer.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
+    pyrLevel = results.XAtMinObjective.PyramidLevel;
+
+    tform = imregtform(movingImage, fixedImage, 'affine', ...
+        optimizer, metric, 'PyramidLevels', pyrLevel);
+
+    registeredImage = imwarp(movingImage, tform, 'OutputView', ...
+        imref3d(size(fixedImage)));
+
+    scores.MovingDate{i-1} = movingDate;
+    scores.Dice
+
