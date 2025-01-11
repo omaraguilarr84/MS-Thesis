@@ -1,4 +1,6 @@
-function [results] = bayesianOptimizer3D(fixedImage, movingImage, maxObjectiveEvaluations, tformType, useParallel)
+function [results] = bayesianOptimizer3D(fixedImage, movingImage, maxObjectiveEvaluations, useParallel)
+    disp('Starting Bayesian Optimization...');
+    
     if useParallel == true
         c = parcluster('local');
         n_workers = c.NumWorkers;
@@ -13,7 +15,7 @@ function [results] = bayesianOptimizer3D(fixedImage, movingImage, maxObjectiveEv
         end
     end
         
-    results = bayesopt(@(params)objFcn(params, movingImage, fixedImage, tformType), ...
+    results = bayesopt(@(params)objFcn(params, movingImage, fixedImage), ...
         [optimizableVariable('GradientMagnitudeTolerance', [1e-10, 1e-3], 'Transform', 'log'), ...
          optimizableVariable('MinimumStepLength', [1e-10, 1e-3], 'Transform', 'log'), ...
          optimizableVariable('MaximumStepLength', [1e-6, 1e-1], 'Transform', 'log'), ...
@@ -26,7 +28,7 @@ function [results] = bayesianOptimizer3D(fixedImage, movingImage, maxObjectiveEv
         'UseParallel', useParallel);
 end
 
-function score = objFcn(params, movingImage, fixedImage, tformType)
+function score = objFcn(params, movingImage, fixedImage)
     try
         [optimizer, metric] = imregconfig('monomodal');
         optimizer.GradientMagnitudeTolerance = params.GradientMagnitudeTolerance;
@@ -36,7 +38,7 @@ function score = objFcn(params, movingImage, fixedImage, tformType)
         optimizer.RelaxationFactor = params.RelaxationFactor;
 
         tform = imregtform(movingImage, fixedImage, ...
-            tformType, optimizer, metric, ...
+            'similarity', optimizer, metric, ...
             'PyramidLevels', params.PyramidLevel);
         registeredImage = imwarp(movingImage, tform, ...
             'OutputView', imref3d(size(fixedImage)));

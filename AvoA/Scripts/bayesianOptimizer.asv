@@ -141,23 +141,7 @@ for i = 1:2
     mat_final(i, i) = tform_circle.A(i, i);
 end
 mat_final(3, 3) = tform.A(3, 3);
-mat_final(1:2, 4) = tform_circle.A(1:2, 3);
-
-tform_final = affinetform3d(mat_final);
-
-registeredImage_final = imwarp(im2_final, tform_final, 'linear', ...
-    'OutputView', imref3d(size(im1_final)));
-
-overlap = computeDice3D(im1_final, registeredImage_final);
-disp(['Dice Coefficient: ', num2str(overlap)]);
-
-hd = computeHausdorffDistance(registeredImage_final, im1_final);
-disp(['Haussdorff Distance: ', num2str(hd)]);
-
-norm_hd = hd / sqrt(size(im1_final, 1)^2 + size(im1_final, 2)^2 + size(im1_final, 3)^2);
-disp(['Normalized HD: ', num2str(norm_hd)]);
-
-interactiveRegVis(registeredImage_final, im1_final, 'z');
+mat_final(1:2, 4) = 
 
 %% Objective Function Definition
 function score = objFcn(params, movingShell, fixedShell)

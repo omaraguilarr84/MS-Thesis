@@ -14,6 +14,9 @@ fixedDate = dates{1};
 fixedPath = fullfile(dataFolder, fixedDate, 'series');
 [fixedImage, fInfo] = loadDicom3D(fixedPath);
 
+threshold_shell = 500;
+fixedImage_shell = double(fixedImage > threshold_shell);
+
 if ~exist(outputFolder, 'dir')
     mkdir(outputFolder);
 end
@@ -29,33 +32,76 @@ for i = 2:length(dates)
     movingDate = dates{i};
     movingPath = fullfile(dataFolder, movingDate, 'series');
     [movingImage, mInfo] = loadDicom3D(movingPath);
-    
-    maxObjectiveEvals = 100;
-    useParallel = true;
-    results = bayesianOptimizer3D(fixedImage, movingImage, ...
-        maxObjectiveEvals, useParallel);
 
-    [optimizer, metric] = imregconfig('monomodal');
-    optimizer.GradientMagnitudeTolerance = results.XAtMinObjective.GradientMagnitudeTolerance;
-    optimizer.MinimumStepLength = results.XAtMinObjective.MinimumStepLength;
-    optimizer.MaximumStepLength = results.XAtMinObjective.MaximumStepLength;
-    optimizer.MaximumIterations = results.XAtMinObjective.MaximumIterations;
-    optimizer.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
+    movingImage_shell = double(movingImage > threshold_shell);
+    
+    maxObjectiveEvals = 50;
+    useParallel = true;
+    results_affine = bayesianOptimizer3D(fixedImage_shell, movingImage_shell, ...
+        maxObjectiveEvals, 'affine', useParallel);
+
+    results_similarity = bayesianOptimizer3D(fixedImage_shell, movingImage_shell, ...
+        maxObjectiveEvals, 'similarity', useParallel);
+
+    if results_affine.MinObjective < results_similarity.MinObjective
+        tformType = 'affine';
+        results = results_affine;
+    else
+        tformType = 'similarity';
+        results = results_similarity;
+    end
+
+    [optimizer_shell, metric_shell] = imregconfig('monomodal');
+    optimizer_shell.GradientMagnitudeTolerance = results.XAtMinObjective.GradientMagnitudeTolerance;
+    optimizer_shell.MinimumStepLength = results.XAtMinObjective.MinimumStepLength;
+    optimizer_shell.MaximumStepLength = results.XAtMinObjective.MaximumStepLength;
+    optimizer_shell.MaximumIterations = results.XAtMinObjective.MaximumIterations;
+    optimizer_shell.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
     pyrLevel = results.XAtMinObjective.PyramidLevel;
 
-    tform = imregtform(movingImage, fixedImage, 'affine', ...
-        optimizer, metric, 'PyramidLevels', pyrLevel);
+    tform_shell = imregtform(movingImage_shell, fixedImage_shell, ...
+        tformType, optimizer_shell, metric_shell, 'PyramidLevels', ...
+        pyrLevel);
 
-    registeredImage = imwarp(movingImage, tform, 'OutputView', ...
-        imref3d(size(fixedImage)));
+    registeredImage_shell = imwarp(movingImage_shell, tform_shell, ...
+        'OutputView', imref3d(size(fixedImage_shell)));
+
+    threshold_circle = -1200;
+    fixedImage_circle = double(fixedImage > threshold_circle);
+    movingImage_circle = double(movingImage > threshold_circle);
+
+    fixedImage_circle = fixedImage_circle(:, :, 1);
+    movingImage_circle = movingImage_circle(:, :, 1);
+
+    [optimizer_circle, metric_circle] = imregconfig('monomodal');
+
+    tform_circle = imregtform(movingImage_circle, fixedImage_circle, ...
+        'similarity', optimizer_circle, metric_circle);
+
+    registeredImage_circle = imwarp(movingImage_circle, tform_circle, ...
+        'linear', 'OutputView', imref2d(size(fixedImage_circle)));
+
+    mat_final = eye(4);
+    for i = 1:2
+        mat_final(i, i) = tform_circle.A(i, i);
+        mat_final(i, 4) = tform_circle.A(i, 3);
+    end
+    mat_final(3, 3) = tform_shell.A(3, 3);
+
+    tform_final = affinetform3d(mat_final);
+
+    registeredImage_final = imwarp(movingImage, tform_final, 'linear', ...
+        'OutputView', imref3d(fixedImage));
 
     scores.MovingDate{i-1} = movingDate;
-    scores.Dice(i-1) = computeDice3D(fixedImage, registeredImage);
-    scores.HD(i-1) = computeHausdorffDistance(registeredImage, fixedImage);
-    scores.NormHD(i-1) = scores.HD(i-1) / sqrt(size(fixedShell, 1)^2 + ...
-        size(fixedShell, 2)^2 + size(fixedShell, 3)^2);
+    scores.Dice(i-1) = computeDice3D(fixedImage, registeredImage_final);
+    scores.HD(i-1) = computeHausdorffDistance(registeredImage_final, ...
+        fixedImage);
+    scores.NormHD(i-1) = scores.HD(i-1) / sqrt(size(fixedImage, 1)^2 + ...
+        size(fixedImage, 2)^2 + size(fixedImage, 3)^2);
 
-    outputFile = fullfile(outputFolder, sprintf('%s-%s.dcm', fixedDate, movingDate));
-    dicomwrite(uint16(registeredImage), outputFile);
+    outputFile = fullfile(outputFolder, sprintf('%s-%s.dcm', fixedDate, ...
+        movingDate));
+    dicomwrite(uint16(registeredImage_final), outputFile);
 end
 
