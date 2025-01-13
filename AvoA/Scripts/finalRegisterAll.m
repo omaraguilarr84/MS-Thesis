@@ -1,7 +1,7 @@
 clear; clc; close all;
 
 %% Load in Fixed Point and Preprocess
-dataFolder = '../Data/';
+dataFolder = '../iData/';
 outputFolder = '../RegisteredData/';
 
 subfolders = dir(dataFolder);
@@ -44,7 +44,7 @@ scores = table('Size', [length(dates)-1, 4], ...
 
 %% Loop Through Dates (Images)
 for i = 2:length(dates)
-    fprintf('Registering %d of %d...\n', idx-1, length(dates)-1);
+    fprintf('Registering %d of %d...\n', i-1, length(dates)-1);
     
     % Load in moving image
     movingDate = dates{i};
@@ -62,24 +62,11 @@ for i = 2:length(dates)
     movingImage_shell_full = movingImageBW(:, :, shellFixed);
     movingImage_shell = autoCrop3D(movingImage_shell_full);
     
-    % Run Bayesian Optimizer to find best parameters for optimizer.
-    % Transform type differs depending on the image, so affine and
-    % similarity transforms are tested to compare results
+    % Run Bayesian Optimizer to find best parameters for optimizer
     maxObjectiveEvals = 50;
     useParallel = true;
-    results_affine = bayesianOptimizer3D(fixedImage_shell, movingImage_shell, ...
-        maxObjectiveEvals, 'affine', useParallel);
-
-    results_similarity = bayesianOptimizer3D(fixedImage_shell, movingImage_shell, ...
-        maxObjectiveEvals, 'similarity', useParallel);
-
-    if results_affine.MinObjective < results_similarity.MinObjective
-        tformType = 'affine';
-        results = results_affine;
-    else
-        tformType = 'similarity';
-        results = results_similarity;
-    end
+    results = bayesianOptimizer3D(fixedImage_shell, movingImage_shell, ...
+        maxObjectiveEvals, useParallel);
     
     % Apply results of Bayesian Optimizer to cropped images
     [optimizer_shell, metric_shell] = imregconfig('monomodal');
@@ -89,6 +76,7 @@ for i = 2:length(dates)
     optimizer_shell.MaximumIterations = results.XAtMinObjective.MaximumIterations;
     optimizer_shell.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
     pyrLevel = results.XAtMinObjective.PyramidLevel;
+    tformType = char(results.XAtMinObjective.TransformType);
 
     tform_shell = imregtform(movingImage_shell, fixedImage_shell, ...
         tformType, optimizer_shell, metric_shell, 'PyramidLevels', ...
@@ -117,9 +105,9 @@ for i = 2:length(dates)
     
     % Make final transformation matrix
     mat_final = eye(4);
-    for i = 1:2
-        mat_final(i, i) = tform_circle.A(i, i);
-        mat_final(i, 4) = tform_circle.A(i, 3);
+    for j = 1:2
+        mat_final(j, j) = tform_circle.A(j, j);
+        mat_final(j, 4) = tform_circle.A(j, 3);
     end
     mat_final(3, 3) = tform_shell.A(3, 3);
 
@@ -127,7 +115,7 @@ for i = 2:length(dates)
     
     % Apply final transformation matrix to original grayscale images
     registeredImage_final = imwarp(movingImage, tform_final, 'linear', ...
-        'OutputView', imref3d(fixedImage));
+        'OutputView', imref3d(size(fixedImage)));
     
     % Log evaluation metrics in the table
     scores.MovingDate{i-1} = movingDate;
@@ -138,8 +126,22 @@ for i = 2:length(dates)
         size(fixedImage, 2)^2 + size(fixedImage, 3)^2);
     
     % Save registered grayscale image to output folder
-    outputFile = fullfile(outputFolder, sprintf('%s-%s.dcm', fixedDate, ...
+    outputFile = fullfile(outputFolder, sprintf('%s-%s', fixedDate, ...
         movingDate));
-    dicomwrite(uint16(registeredImage_final), outputFile);
+
+    if ~exist(outputFile, 'dir')
+        mkdir(outputFile);
+    end
+    
+    seriesUID = dicomuid;
+    for k = 1:size(registeredImage_final, 3)
+        outputSlice = fullfile(outputFile, sprintf('IM-%04d.dcm', k));
+        
+        sliceInfo = mInfo;
+        sliceInfo.InstanceNumber = k; % need to ask about this
+        sliceInfo.SeriesInstanceUID = seriesUID;
+
+        dicomwrite(uint16(registeredImage_final(:, :, k)), outputSlice, sliceInfo);
+    end
 end
 

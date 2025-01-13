@@ -1,8 +1,8 @@
 clear; clc; close all;
 
 %% Load Info and Image
-dicomFolder1 = '../Data/20240910/series/';
-dicomFolder2 = '../Data/20240830_rev/series/';
+dicomFolder1 = '../Data/20240830_rev/series/';
+dicomFolder2 = '../Data/20241007/series/';
 
 warning('off', 'MATLAB:DELETE:Permission');
 
@@ -11,19 +11,22 @@ disp('Scanning Images...');
 [im2, info2] = loadDicom3D(dicomFolder2);
 
 %% Crop Images
-im1_cropped = im1(400:end, 200:300, :);
-im2_cropped = im2(400:end, 200:300, :);
+% im1_cropped = im1(400:end, 200:300, :);
+% im2_cropped = im2(400:end, 200:300, :);
 
 %% Threshold & Downsample Images
 disp('Thresholding images...');
 threshold = 500;
-imBW1 = im1_cropped > threshold;
-imBW2 = im2_cropped > threshold;
+imBW1 = im1 > threshold;
+imBW2 = im2 > threshold;
+
+im1_cropped = autoCrop3D(imBW1);
+im2_cropped = autoCrop3D(imBW2);
 
 scale = 1;
 
-imBW1_double = double(imBW1) * scale;
-imBW2_double = double(imBW2) * scale;
+imBW1_double = double(im1_cropped) * scale;
+imBW2_double = double(im2_cropped) * scale;
 
 % step = 4;
 % fixedImageBW_down = imBW1_double(1:step:end, 1:step:end, 1:step:end);
@@ -51,15 +54,15 @@ else
     end
 end
 
-initialX = table( ...
-    1e-3, ...      % GradientMagnitudeTolerance
-    1e-9, ...    % MinimumStepLength
-    1e-2, ...     % MaximumStepLength
-    1000, ...       % MaximumIterations
-    0.6, ...       % RelaxationFactor
-    4, ...         % PyramidLevel
-    'VariableNames', {'GradientMagnitudeTolerance', 'MinimumStepLength', 'MaximumStepLength', ...
-                      'MaximumIterations', 'RelaxationFactor', 'PyramidLevel'});
+% initialX = table( ...
+%     1e-3, ...      % GradientMagnitudeTolerance
+%     1e-9, ...    % MinimumStepLength
+%     1e-2, ...     % MaximumStepLength
+%     1000, ...       % MaximumIterations
+%     0.6, ...       % RelaxationFactor
+%     4, ...         % PyramidLevel
+%     'VariableNames', {'GradientMagnitudeTolerance', 'MinimumStepLength', 'MaximumStepLength', ...
+%                       'MaximumIterations', 'RelaxationFactor', 'PyramidLevel'});
 
 results = bayesopt(@(params)objFcn(params, movingShell, fixedShell), ...
     [optimizableVariable('GradientMagnitudeTolerance', [1e-10, 1e-3], 'Transform', 'log'), ...
@@ -67,12 +70,12 @@ results = bayesopt(@(params)objFcn(params, movingShell, fixedShell), ...
      optimizableVariable('MaximumStepLength', [1e-6, 1e-1], 'Transform', 'log'), ...
      optimizableVariable('MaximumIterations', [50, 1500], 'Type', 'integer'), ...
      optimizableVariable('RelaxationFactor', [0.3, 0.8]), ...
-     optimizableVariable('PyramidLevel', [1, 5], 'Type', 'integer')], ...
+     optimizableVariable('PyramidLevel', [1, 5], 'Type', 'integer'), ...
+     optimizableVariable('TransformType', {'similarity', 'affine'}, 'Type', 'categorical')], ...
     'Verbose', 1, ...
     'AcquisitionFunctionName', 'expected-improvement-plus', ...
-    'MaxObjectiveEvaluations', 25, ...
-    'UseParallel', true, ...
-    'InitialX', initialX);
+    'MaxObjectiveEvaluations', 50, ...
+    'UseParallel', true);
 
 %% Extract Best Parameters
 disp('Best Parameters:');
@@ -87,8 +90,9 @@ optimizer.MaximumIterations = results.XAtMinObjective.MaximumIterations;
 optimizer.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
 
 bestPyramidLevel = results.XAtMinObjective.PyramidLevel;
+tformType = char(results.XAtMinObjective.TransformType);
 tform = imregtform(movingShell, fixedShell, ...
-    'affine', optimizer, metric, ...
+    tformType, optimizer, metric, ...
     'PyramidLevels', bestPyramidLevel);
 
 registeredImage = imwarp(movingShell, tform, 'linear', 'OutputView', ...
@@ -105,6 +109,14 @@ disp(['Haussdorff Distance: ', num2str(hd)]);
 
 norm_hd = hd / sqrt(size(fixedShell, 1)^2 + size(fixedShell, 2)^2 + size(fixedShell, 3)^2);
 disp(['Normalized HD: ', num2str(norm_hd)]);
+
+%%
+regIm = imwarp(im2, tform, 'linear', 'OutputView', imref3d(size(im1)));
+
+overlap = computeDice3D(im1, regIm);
+disp(['Dice Coefficient: ', num2str(overlap)]);
+
+interactiveRegVis(regIm, im1, 'z');
 
 %% Register 2D Circle
 threshold_circle = -1200;
@@ -162,6 +174,8 @@ interactiveRegVis(registeredImage_final, im1_final, 'z');
 %% Objective Function Definition
 function score = objFcn(params, movingShell, fixedShell)
     try
+        tformType = char(params.TransformType);
+
         [optimizer, metric] = imregconfig('monomodal');
         optimizer.GradientMagnitudeTolerance = params.GradientMagnitudeTolerance;
         optimizer.MinimumStepLength = params.MinimumStepLength;
@@ -170,7 +184,7 @@ function score = objFcn(params, movingShell, fixedShell)
         optimizer.RelaxationFactor = params.RelaxationFactor;
 
         tform = imregtform(movingShell, fixedShell, ...
-            'affine', optimizer, metric, ...
+            tformType, optimizer, metric, ...
             'PyramidLevels', params.PyramidLevel);
         registeredImage = imwarp(movingShell, tform, 'linear', ...
             'OutputView', imref3d(size(fixedShell)));
