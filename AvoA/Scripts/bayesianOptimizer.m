@@ -2,7 +2,7 @@ clear; clc; close all;
 
 %% Load Info and Image
 dicomFolder1 = '../Data/20240830_rev/series/';
-dicomFolder2 = '../Data/20241007/series/';
+dicomFolder2 = '../Data/20240910/series/';
 
 warning('off', 'MATLAB:DELETE:Permission');
 
@@ -43,7 +43,7 @@ movingShell = imBW2_double(:, :, shell);
 %% Bayesian Optimization with Improvements
 disp('Starting Bayesian Optimization...');
 
-n_workers = 8;
+n_workers = maxNumCompThreads;
 pool = gcp('nocreate');
 if isempty(pool)
     parpool('local', n_workers);
@@ -98,7 +98,7 @@ tform = imregtform(movingShell, fixedShell, ...
 registeredImage = imwarp(movingShell, tform, 'linear', 'OutputView', ...
     imref3d(size(fixedShell)));
 
-%% Evaluation
+%% Evaluation of Shell Registration
 interactiveRegVis(registeredImage, fixedShell, 'z');
 
 overlap = computeDice3D(fixedShell, registeredImage);
@@ -110,7 +110,7 @@ disp(['Haussdorff Distance: ', num2str(hd)]);
 norm_hd = hd / sqrt(size(fixedShell, 1)^2 + size(fixedShell, 2)^2 + size(fixedShell, 3)^2);
 disp(['Normalized HD: ', num2str(norm_hd)]);
 
-%%
+%% Apply shell tform to grayscale
 regIm = imwarp(im2, tform, 'linear', 'OutputView', imref3d(size(im1)));
 
 overlap = computeDice3D(im1, regIm);
@@ -170,6 +170,21 @@ norm_hd = hd / sqrt(size(im1_final, 1)^2 + size(im1_final, 2)^2 + size(im1_final
 disp(['Normalized HD: ', num2str(norm_hd)]);
 
 interactiveRegVis(registeredImage_final, im1_final, 'z');
+
+%% Apply to full grayscale
+registeredImage_gray = imwarp(im2, tform_final, 'linear', ...
+    'OutputView', imref3d(size(im1)));
+
+overlap = computeDice3D(im1_final, registeredImage_final);
+disp(['Dice Coefficient: ', num2str(overlap)]);
+
+hd = computeHausdorffDistance(registeredImage_final, im1_final);
+disp(['Haussdorff Distance: ', num2str(hd)]);
+
+norm_hd = hd / sqrt(size(im1_final, 1)^2 + size(im1_final, 2)^2 + size(im1_final, 3)^2);
+disp(['Normalized HD: ', num2str(norm_hd)]);
+
+interactiveRegVis(registeredImage_gray, im1, 'z');
 
 %% Objective Function Definition
 function score = objFcn(params, movingShell, fixedShell)

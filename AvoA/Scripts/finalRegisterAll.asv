@@ -1,7 +1,7 @@
 clear; clc; close all;
 
 %% Load in Fixed Point and Preprocess
-dataFolder = '../iData/';
+dataFolder = '../Data/';
 outputFolder = '../RegisteredData/';
 
 subfolders = dir(dataFolder);
@@ -41,6 +41,10 @@ scores = table('Size', [length(dates)-1, 4], ...
     'VariableTypes', {'string', 'double', 'double', 'double'}, ...
     'VariableNames', {'MovingDate', 'Dice', ...
     'HD', 'NormHD'});
+
+% Initialize MIP stack
+fixedMIP = MIPxyz(fixedImage);
+MIPImages = fixedMIP.tile;
 
 %% Loop Through Dates (Images)
 for i = 2:length(dates)
@@ -135,13 +139,17 @@ for i = 2:length(dates)
     
     seriesUID = dicomuid;
     for k = 1:size(registeredImage_final, 3)
-        outputSlice = fullfile(outputFile, sprintf('IM-%04d.dcm', i));
+        outputSlice = fullfile(outputFile, sprintf('IM-%04d.dcm', k));
         
         sliceInfo = mInfo;
         sliceInfo.InstanceNumber = k; % need to ask about this
         sliceInfo.SeriesInstanceUID = seriesUID;
 
-        dicomwrite(uint16(registeredImage_final(:, :, i)), outputSlice, sliceInfo);
+        dicomwrite(uint16(registeredImage_final(:, :, k)), outputSlice, sliceInfo);
     end
+
+    registeredMIP = MIPxyz(registeredImage_final);
+    MIPImages = cat(3, MIPImages, registeredMIP.tile);
 end
 
+MIPxyzLapse()

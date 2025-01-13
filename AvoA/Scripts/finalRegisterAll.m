@@ -1,7 +1,7 @@
 clear; clc; close all;
 
 %% Load in Fixed Point and Preprocess
-dataFolder = '../iData/';
+dataFolder = '../Data/';
 outputFolder = '../RegisteredData/';
 
 subfolders = dir(dataFolder);
@@ -41,6 +41,10 @@ scores = table('Size', [length(dates)-1, 4], ...
     'VariableTypes', {'string', 'double', 'double', 'double'}, ...
     'VariableNames', {'MovingDate', 'Dice', ...
     'HD', 'NormHD'});
+
+% Initialize MIP stack
+fixedMIP = MIPxyz(fixedImage, false);
+MIPImages = fixedMIP.tile;
 
 %% Loop Through Dates (Images)
 for i = 2:length(dates)
@@ -143,5 +147,9 @@ for i = 2:length(dates)
 
         dicomwrite(uint16(registeredImage_final(:, :, k)), outputSlice, sliceInfo);
     end
+
+    registeredMIP = MIPxyz(registeredImage_final, false);
+    MIPImages = cat(3, MIPImages, registeredMIP.tile);
 end
 
+saveMIPLapseVideo(MIPImages, 'Avo_MIP_TL.mp4', 5);
