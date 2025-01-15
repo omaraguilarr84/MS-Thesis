@@ -1,6 +1,6 @@
 clear; clc; close all;
 
-dataFolder = '../Data/';
+dataFolder = '../AvoData/';
 
 subfolders = dir(dataFolder);
 subfolders = subfolders([subfolders.isdir]);
@@ -31,18 +31,24 @@ for i = 2:length(dates)
 
     movingDate = dates{i};
     movingPath = fullfile(dataFolder, movingDate, 'series');
-    [movingImage, mInfo] = loadDicom3D(movingPath);
 
-    movingImageBW = double(movingImage > threshold_shell);
+    if exist(movingPath, 'dir')
+        [movingImage, mInfo] = loadDicom3D(movingPath);
+
+        movingImageBW = double(movingImage > threshold_shell);
+        
+        shellMoving = find(any(any(movingImageBW > 0, 1), 2));
     
-    shellMoving = find(any(any(movingImageBW > 0, 1), 2));
-
-    if shellMoving(1) < 300
-        movingImageBW = movingImageBW(:, :, end:-1:1);
+        if shellMoving(1) < 300
+            movingImage = movingImage(:, :, end:-1:1);
+        end
+    
+        movingMIP = MIPxyz(movingImage, false);
+        MIPImages = cat(3, MIPImages, movingMIP.tile);
     end
-
-    movingMIP = MIPxyz(movingImage, false);
-    MIPImages = cat(3, MIPImages, movingMIP.tile);
 end
 
 MIPxyzLapse(MIPImages);
+
+%% Create Video
+saveMIPLapseVideo(MIPImages, '../MIP_Videos/Initial_MIPs.mp4', 3);

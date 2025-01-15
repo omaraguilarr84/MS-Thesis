@@ -1,7 +1,7 @@
 function [results] = bayesianOptimizer3D(fixedImage, movingImage, maxObjectiveEvaluations, useParallel)
     if useParallel == true
         c = parcluster('local');
-        n_workers = c.NumWorkers - 2;
+        n_workers = c.NumWorkers;
         pool = gcp('nocreate');
         if isempty(pool)
             parpool('local', n_workers);

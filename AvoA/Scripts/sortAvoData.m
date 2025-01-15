@@ -1,6 +1,6 @@
 clear; clc; close all;
 
-dataFolder = '../Data/';
+dataFolder = '../2024_amirlab_Avo/';
 outputFolder = '../AvoData/';
 
 if ~exist(outputFolder, 'dir')
@@ -29,8 +29,6 @@ for i = 1:length(dates)
     subDirs = subDirs(~ismember({subDirs.name}, {'.', '..'}));
     
     if isempty(subDirs)
-        disp(['Folder ', dates{i}, ' does not have subfolders.']);
-        
         dicomFiles = dir(fullfile(srcFolder, '*.dcm'));
         if isempty(dicomFiles)
             disp(['No DICOM files found in ', dates{i}]);
@@ -67,13 +65,13 @@ for i = 1:length(dates)
     subDirs = subDirs(~ismember({subDirs.name}, {'.', '..'}));
 
     for k = 1:length(subDirs)
-        currentSubfolder = fullfile(srcFolder, subDirs(j).name);
+        currentSubfolder = fullfile(srcFolder, subDirs(k).name);
 
         dicomFiles = dir(fullfile(currentSubfolder, '*.dcm'));
         numFiles = numel(dicomFiles);
 
         if numFiles == 512
-            destFolder = fullfile(outputFolder, dates{i}, subDirs(k).name);
+            destFolder = fullfile(outputFolder, dates{i});
 
             if ~exist(destFolder, 'dir')
                 mkdir(destFolder);
@@ -82,4 +80,33 @@ for i = 1:length(dates)
             movefile(currentSubfolder, destFolder);
         end
     end
+end
+
+%%
+outputFolder = '../AvoData/';
+
+subfolders = dir(outputFolder);
+subfolders = subfolders([subfolders.isdir]);
+subfolders = subfolders(~ismember({subfolders.name}, {'.', '..'}));
+
+dates = {subfolders.name};
+dates = sort(dates);
+
+for i = 1:length(dates)
+    fprintf('Renaming folder %d of %d...\n', i, length(dates));
+
+    j = 1;
+    srcFolder = fullfile(outputFolder, dates{i});
+
+    contents = dir(srcFolder);
+    isDir = [contents.isdir];
+    subDirs = contents(isDir);
+    subDirs = subDirs(~ismember({subDirs.name}, {'.', '..'}));
+
+    if numel(subDirs) > 1
+        j = numel(subDirs);
+    end
+
+    copyFolder = fullfile(srcFolder, subDirs(j).name);
+    copyfile(copyFolder, fullfile(srcFolder, 'series'));
 end

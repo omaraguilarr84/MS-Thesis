@@ -1,7 +1,7 @@
 clear; clc; close all;
 
 %% Load in Fixed Point and Preprocess
-dataFolder = '../Data/';
+dataFolder = '../AvoData/';
 outputFolder = '../RegisteredData/';
 
 subfolders = dir(dataFolder);
@@ -53,6 +53,11 @@ for i = 2:length(dates)
     % Load in moving image
     movingDate = dates{i};
     movingPath = fullfile(dataFolder, movingDate, 'series');
+
+    if ~exist(movingPath, 'dir')
+        continue
+    end
+
     [movingImage, mInfo] = loadDicom3D(movingPath);
 
     movingImageBW = double(movingImage > threshold_shell);
@@ -152,4 +157,7 @@ for i = 2:length(dates)
     MIPImages = cat(3, MIPImages, registeredMIP.tile);
 end
 
-saveMIPLapseVideo(MIPImages, 'Avo_MIP_TL.mp4', 5);
+MIPxyzLapse(MIPImages);
+
+%% Save Video
+saveMIPLapseVideo(MIPImages, '../MIP_Videos/Avo_MIP_TL.mp4', 3);
