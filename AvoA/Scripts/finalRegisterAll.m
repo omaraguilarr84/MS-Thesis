@@ -73,18 +73,27 @@ for i = 2:length(dates)
     movingImage_shell_full = movingImageBW(:, :, shellFixed);
     movingImage_shell = autoCrop3D(movingImage_shell_full);
     
-    % Run Bayesian Optimizer to find best parameters for optimizer
-    maxObjectiveEvals = 50;
-    useParallel = true;
-    results = bayesianOptimizer3D(fixedImage_shell, movingImage_shell, ...
-        maxObjectiveEvals, useParallel);
-    
-    % Apply results of Bayesian Optimizer to cropped images
+    % % Run Bayesian Optimizer to find best parameters for optimizer
+    % maxObjectiveEvals = 50;
+    % useParallel = true;
+    % results = bayesianOptimizer3D(fixedImage_shell, movingImage_shell, ...
+    %     maxObjectiveEvals, useParallel);
+    % 
+    % % Apply results of Bayesian Optimizer to cropped images
+    % [optimizer_shell, metric_shell] = imregconfig('monomodal');
+    % optimizer_shell.GradientMagnitudeTolerance = results.XAtMinObjective.GradientMagnitudeTolerance;
+    % optimizer_shell.MinimumStepLength = results.XAtMinObjective.MinimumStepLength;
+    % optimizer_shell.MaximumStepLength = results.XAtMinObjective.MaximumStepLength;
+    % optimizer_shell.MaximumIterations = results.XAtMinObjective.MaximumIterations;
+    % optimizer_shell.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
+    % pyrLevel = results.XAtMinObjective.PyramidLevel;
+    % tformType = char(results.XAtMinObjective.TransformType);
+
     [optimizer_shell, metric_shell] = imregconfig('monomodal');
-    optimizer_shell.GradientMagnitudeTolerance = results.XAtMinObjective.GradientMagnitudeTolerance;
-    optimizer_shell.MinimumStepLength = results.XAtMinObjective.MinimumStepLength;
-    optimizer_shell.MaximumStepLength = results.XAtMinObjective.MaximumStepLength;
-    optimizer_shell.MaximumIterations = results.XAtMinObjective.MaximumIterations;
+    optimizer_shell.GradientMagnitudeTolerance = 1e-3;
+    optimizer_shell.MinimumStepLength = 1e-9;
+    optimizer_shell.MaximumStepLength = 1e-2;
+    optimizer_shell.MaximumIterations = 1000;
     optimizer_shell.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
     pyrLevel = results.XAtMinObjective.PyramidLevel;
     tformType = char(results.XAtMinObjective.TransformType);
@@ -95,6 +104,9 @@ for i = 2:length(dates)
 
     registeredImage_shell = imwarp(movingImage_shell, tform_shell, ... % do we really need these?
         'OutputView', imref3d(size(fixedImage_shell)));
+
+    overlap = computeDice3D(registeredImage_shell, fixedImage_shell);
+    disp(['Dice Coefficient: ', num2str(overlap)]);
     
     % Create new transform to obtain correct x and y translation and 
     % scale values. This uses a very low threshold to compute a 2D

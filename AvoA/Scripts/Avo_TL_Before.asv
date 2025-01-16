@@ -34,7 +34,7 @@ for i = 2:length(dates)
     movingPath = fullfile(dataFolder, movingDate, 'series');
     movingPathFull = fullfile(dataFolder, movingDate, 'seriesFull');
 
-    if exist(movingPath, 'dir') || exist(movingPathFull, 'dir')
+    if exist(movingPath, 'dir') || exist(movingPathFull, dir)
         [movingImage, mInfo] = loadDicom3D(movingPath);
 
         movingImageBW = double(movingImage > threshold_shell);
@@ -45,7 +45,7 @@ for i = 2:length(dates)
             movingImage = movingImage(:, :, end:-1:1);
         end
     
-        movingMIP = MIPxyzWindowed(movingImage, windowLevel, false);
+        movingMIP = MIPxyzWindowed(movingImage, false);
         MIPImages = cat(3, MIPImages, movingMIP.tile);
     end
 end
