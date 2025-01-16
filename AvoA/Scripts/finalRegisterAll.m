@@ -24,6 +24,7 @@ shellFixed = find(any(any(fixedImageBW > 0, 1), 2));
 
 % If image z-dimension is backwards, reverse the image
 if shellFixed(1) < 300
+    fixedImage = fixedImage(:, :, end:-1:1);
     fixedImageBW = fixedImageBW(:, :, end:-1:1);
     shellFixed = find(any(any(fixedImageBW > 0, 1), 2));
 end
@@ -65,6 +66,7 @@ for i = 2:length(dates)
     shellMoving = find(any(any(movingImageBW > 0, 1), 2));
 
     if shellMoving(1) < 300
+        movingImage = movingImage(:, :, end:-1:1);
         movingImageBW = movingImageBW(:, :, end:-1:1);
     end
 
