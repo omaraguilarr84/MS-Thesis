@@ -1,6 +1,6 @@
 clear; clc; close all;
 
-dataFolder = '../AvoData/';
+dataFolder = '../Data/';
 
 subfolders = dir(dataFolder);
 subfolders = subfolders([subfolders.isdir]);
@@ -24,17 +24,33 @@ if shellFixed(1) < 300
 end
 
 windowLevel = [-200 300];
-fixedMIP = MIPxyz(fixedImage, windowLevel, false);
+fixedMIP = MIPxyzWindowed(fixedImage, windowLevel, false);
 MIPImages = fixedMIP.tile;
 
 for i = 2:length(dates)
     fprintf('Creating MIP %d of %d...\n', i-1, length(dates)-1);
 
-    movingDate = dates{i};
-    movingPath = fullfile(dataFolder, movingDate, 'series');
-    movingPathFull = fullfile(dataFolder, movingDate, 'seriesFull');
+    currentFolder = fullfile(dataFolder, dates{i});
 
-    if exist(movingPath, 'dir') || exist(movingPathFull, 'dir')
+    movingDate = dates{i};
+    series = fullfile(dataFolder, movingDate, 'series');
+    seriesFull = fullfile(dataFolder, movingDate, 'seriesFull');
+
+    subDirs = dir(currentFolder);
+    subDirs = subDirs([subDirs.isdir]);
+    subDirs = subDirs(~ismember({subDirs.name}, {'.', '..'}));
+
+    for j = 1:length(subDirs)
+        seriesFolder = fullfile(currentFolder, subDirs(j).name);
+        
+        if strcmp(seriesFolder, series)
+            movingPath = series;
+        elseif strcmp(seriesFolder, seriesFull)
+            movingPath = seriesFull;
+        else
+            continue;
+        end
+
         [movingImage, mInfo] = loadDicom3D(movingPath);
 
         movingImageBW = double(movingImage > threshold_shell);

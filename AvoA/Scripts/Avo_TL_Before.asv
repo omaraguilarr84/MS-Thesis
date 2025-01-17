@@ -30,11 +30,20 @@ MIPImages = fixedMIP.tile;
 for i = 2:length(dates)
     fprintf('Creating MIP %d of %d...\n', i-1, length(dates)-1);
 
-    movingDate = dates{i};
-    movingPath = fullfile(dataFolder, movingDate, 'series');
-    movingPathFull = fullfile(dataFolder, movingDate, 'seriesFull');
+    currentFolder = fullfile(dataFolder, dates{i});
 
-    if exist(movingPath, 'dir') || exist(movingPathFull, dir)
+    movingDate = dates{i};
+    series = fullfile(dataFolder, movingDate, 'series');
+    seriesFull = fullfile(dataFolder, movingDate, 'seriesFull');
+
+    subDirs = dir(currentFolder);
+    subDirs = subDirs([subDirs.isdir]);
+    subDirs = subDirs(~ismember({subDirs.name}, {'.', '..'}));
+
+    for j = 1:length(subDirs)
+        seriesFolder = fullfile(currentFolder, subDirs(i))
+        
+
         [movingImage, mInfo] = loadDicom3D(movingPath);
 
         movingImageBW = double(movingImage > threshold_shell);
@@ -45,7 +54,7 @@ for i = 2:length(dates)
             movingImage = movingImage(:, :, end:-1:1);
         end
     
-        movingMIP = MIPxyzWindowed(movingImage, false);
+        movingMIP = MIPxyzWindowed(movingImage, windowLevel, false);
         MIPImages = cat(3, MIPImages, movingMIP.tile);
     end
 end
