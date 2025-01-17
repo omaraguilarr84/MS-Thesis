@@ -44,8 +44,12 @@ scores = table('Size', [length(dates)-1, 4], ...
     'HD', 'NormHD'});
 
 % Initialize MIP stack
-fixedMIP = MIPxyz(fixedImage, false);
+windowLevel = [-200 300];
+fixedMIP = MIPxyzWindowed(fixedImage, windowLevel, false);
 MIPImages = fixedMIP.tile;
+
+frameDates = {fixedDate};
+fovSizes = {'small'};
 
 %% Loop Through Dates (Images)
 for i = 2:length(dates)
@@ -73,30 +77,30 @@ for i = 2:length(dates)
     movingImage_shell_full = movingImageBW(:, :, shellFixed);
     movingImage_shell = autoCrop3D(movingImage_shell_full);
     
-    % % Run Bayesian Optimizer to find best parameters for optimizer
-    % maxObjectiveEvals = 50;
-    % useParallel = true;
-    % results = bayesianOptimizer3D(fixedImage_shell, movingImage_shell, ...
-    %     maxObjectiveEvals, useParallel);
-    % 
-    % % Apply results of Bayesian Optimizer to cropped images
-    % [optimizer_shell, metric_shell] = imregconfig('monomodal');
-    % optimizer_shell.GradientMagnitudeTolerance = results.XAtMinObjective.GradientMagnitudeTolerance;
-    % optimizer_shell.MinimumStepLength = results.XAtMinObjective.MinimumStepLength;
-    % optimizer_shell.MaximumStepLength = results.XAtMinObjective.MaximumStepLength;
-    % optimizer_shell.MaximumIterations = results.XAtMinObjective.MaximumIterations;
-    % optimizer_shell.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
-    % pyrLevel = results.XAtMinObjective.PyramidLevel;
-    % tformType = char(results.XAtMinObjective.TransformType);
+    % Run Bayesian Optimizer to find best parameters for optimizer
+    maxObjectiveEvals = 50;
+    useParallel = true;
+    results = bayesianOptimizer3D(fixedImage_shell, movingImage_shell, ...
+        maxObjectiveEvals, useParallel);
 
+    % Apply results of Bayesian Optimizer to cropped images
     [optimizer_shell, metric_shell] = imregconfig('monomodal');
-    optimizer_shell.GradientMagnitudeTolerance = 1e-3;
-    optimizer_shell.MinimumStepLength = 1e-9;
-    optimizer_shell.MaximumStepLength = 1e-2;
-    optimizer_shell.MaximumIterations = 1000;
+    optimizer_shell.GradientMagnitudeTolerance = results.XAtMinObjective.GradientMagnitudeTolerance;
+    optimizer_shell.MinimumStepLength = results.XAtMinObjective.MinimumStepLength;
+    optimizer_shell.MaximumStepLength = results.XAtMinObjective.MaximumStepLength;
+    optimizer_shell.MaximumIterations = results.XAtMinObjective.MaximumIterations;
     optimizer_shell.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
     pyrLevel = results.XAtMinObjective.PyramidLevel;
     tformType = char(results.XAtMinObjective.TransformType);
+
+    % [optimizer_shell, metric_shell] = imregconfig('monomodal');
+    % optimizer_shell.GradientMagnitudeTolerance = 1e-3;
+    % optimizer_shell.MinimumStepLength = 1e-9;
+    % optimizer_shell.MaximumStepLength = 1e-2;
+    % optimizer_shell.MaximumIterations = 1000;
+    % optimizer_shell.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
+    % pyrLevel = results.XAtMinObjective.PyramidLevel;
+    % tformType = char(results.XAtMinObjective.TransformType);
 
     tform_shell = imregtform(movingImage_shell, fixedImage_shell, ...
         tformType, optimizer_shell, metric_shell, 'PyramidLevels', ...
@@ -167,11 +171,14 @@ for i = 2:length(dates)
         dicomwrite(uint16(registeredImage_final(:, :, k)), outputSlice, sliceInfo);
     end
 
-    registeredMIP = MIPxyz(registeredImage_final, false);
+    registeredMIP = MIPxyzWindowed(registeredImage_final, windowLevel, false);
     MIPImages = cat(3, MIPImages, registeredMIP.tile);
+
+    frameDates{end + 1} = dates{i};
+    fovSizes{end + 1} = 'small';
 end
 
-MIPxyzLapse(MIPImages);
+MIPxyzLapse(MIPImages, frameDates, fovSizes);
 
 %% Save Video
 saveMIPLapseVideo(MIPImages, '../MIP_Videos/Avo_MIP_TL.mp4', 3);

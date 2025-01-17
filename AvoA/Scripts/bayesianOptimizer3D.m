@@ -23,12 +23,38 @@ function [results] = bayesianOptimizer3D(fixedImage, movingImage, maxObjectiveEv
         optimizableVariable('TransformType', {'similarity', 'affine'}, 'Type', 'categorical')
     ];
     
+    % Create a custom output function to monitor progress
+    consecutiveThreshold = 10;
+    thresholdValue = -0.9;
+    bestEval = Inf;
+    consecutiveCount = 0;
+    
+    function stop = earlyStopFcn(results, state)
+        stop = false;
+        if state == "iteration"
+            % Update best evaluation and count consecutive iterations
+            if results.MinObjective < thresholdValue
+                consecutiveCount = consecutiveCount + 1;
+            else
+                consecutiveCount = 0;
+            end
+            
+            % Check if the threshold has been met for the desired iterations
+            if consecutiveCount >= consecutiveThreshold
+                stop = true;
+                disp("Early stopping triggered: Best observed evaluation has been below the threshold for 10 iterations.");
+            end
+        end
+    end
+
+    % Run Bayesian optimization
     results = bayesopt(@(params)objFcn(params, movingImage, fixedImage), ...
         optimVars, ...
         'Verbose', 1, ...
         'AcquisitionFunctionName', 'expected-improvement-plus', ...
         'MaxObjectiveEvaluations', maxObjectiveEvaluations, ...
-        'UseParallel', useParallel);
+        'UseParallel', useParallel, ...
+        'OutputFcn', @earlyStopFcn);
 end
 
 function score = objFcn(params, movingImage, fixedImage)

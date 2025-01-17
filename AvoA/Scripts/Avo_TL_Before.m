@@ -1,6 +1,6 @@
 clear; clc; close all;
 
-dataFolder = '../Data/';
+dataFolder = '../AvoData/';
 
 subfolders = dir(dataFolder);
 subfolders = subfolders([subfolders.isdir]);
@@ -27,6 +27,9 @@ windowLevel = [-200 300];
 fixedMIP = MIPxyzWindowed(fixedImage, windowLevel, false);
 MIPImages = fixedMIP.tile;
 
+fovSizes = {'small'};
+frameDates = {fixedDate};
+
 for i = 2:length(dates)
     fprintf('Creating MIP %d of %d...\n', i-1, length(dates)-1);
 
@@ -45,8 +48,10 @@ for i = 2:length(dates)
         
         if strcmp(seriesFolder, series)
             movingPath = series;
+            fov = 'small';
         elseif strcmp(seriesFolder, seriesFull)
             movingPath = seriesFull;
+            fov = 'large';
         else
             continue;
         end
@@ -63,10 +68,13 @@ for i = 2:length(dates)
     
         movingMIP = MIPxyzWindowed(movingImage, windowLevel, false);
         MIPImages = cat(3, MIPImages, movingMIP.tile);
+
+        fovSizes{end + 1} = fov;
+        frameDates{end + 1} = dates{i};
     end
 end
 
-MIPxyzLapse(MIPImages);
+MIPxyzLapse(MIPImages, frameDates, fovSizes);
 
 %% Create Video
-saveMIPLapseVideo(MIPImages, '../MIP_Videos/Initial_MIPs.mp4', 3);
+saveMIPLapseVideo(MIPImages, '../MIP_Videos/Initial_MIPs_All.mp4', 3);
