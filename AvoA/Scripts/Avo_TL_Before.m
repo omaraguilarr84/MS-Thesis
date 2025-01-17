@@ -77,4 +77,4 @@ end
 MIPxyzLapse(MIPImages, frameDates, fovSizes);
 
 %% Create Video
-saveMIPLapseVideo(MIPImages, '../MIP_Videos/Initial_MIPs_All.mp4', 3);
+saveMIPLapseVideo(MIPImages, '../MIP_Videos/Initial_MIPs_All.mp4', 3, frameDates, fovSizes);
