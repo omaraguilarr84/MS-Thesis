@@ -71,7 +71,7 @@ for i = 1:length(dates)
     subDirs = subDirs([subDirs.isdir]);
     subDirs = subDirs(~ismember({subDirs.name}, {'.', '..'}));
 
-    for l = 2:length(subDirs)
+    for l = 1:length(subDirs)
         seriesFolder = fullfile(currentFolder, subDirs(l).name);
 
         if strcmp(seriesFolder, series)
@@ -179,14 +179,6 @@ for i = 1:length(dates)
             continue
         end
         
-        % Log evaluation metrics in the table
-        % scores.MovingDate{i-1} = movingDate;
-        % scores.Dice(i-1) = computeDice3D(fixedImage, registeredImage_final);
-        % scores.HD(i-1) = computeHausdorffDistance(registeredImage_final, ...
-        %     fixedImage);
-        % scores.NormHD(i-1) = scores.HD(i-1) / sqrt(size(fixedImage, 1)^2 + ...
-        %     size(fixedImage, 2)^2 + size(fixedImage, 3)^2);
-        
         % Save registered grayscale image to output folder
         outputFile = fullfile(outputFolder, sprintf('%s-%s', fixedDate, ...
             movingDate), fov);
@@ -250,3 +242,41 @@ MIPxyzLapse(MIPImages, frameDates, fovSizes);
 
 %% Save Video
 saveMIPLapseVideo(MIPImages, '../MIP_Videos/Avo_MIP_TL_all.mp4', 3, frameDates, fovSizes);
+
+%%
+fixedImage_dot = fixedImage(:, :, 1);
+movingImage_dot = movingImage(:, :, 1);
+
+fixedImage_dot(500:512, 250:260) = 10000;
+movingImage_dot(500:512, 250:260) = 10000;
+
+threshold_dot = 9000;
+fixedImageBW_dot = double(fixedImage_dot > threshold_dot);
+movingImageBW_dot = double(movingImage_dot > threshold_dot);
+
+[optimizer_dot, metric_dot] = imregconfig('monomodal');
+
+tform_dot = imregtform(movingImageBW_dot, fixedImageBW_dot, ...
+    'similarity', optimizer_circle, metric_circle);
+
+registeredImage_dot = imwarp(movingImageBW_dot, tform_dot, 'linear', ...
+    'OutputView', imref2d(size(fixedImageBW_dot)));
+
+overlap_final = computeDice3D(registeredImage_dot, fixedImageBW_dot);
+disp(['Dice Coefficient: ', num2str(overlap_final)]);
+
+%%
+mat = [0.4698 0 0 135.9961;
+        0 0.4698 0 280;
+        0 0 0.9961 0;
+        0 0 0 1];
+
+tform = affinetform3d(mat);
+
+regIm = imwarp(movingImage, tform, 'linear', 'OutputView', ...
+    imref3d(size(fixedImage)));
+
+computeDice3D(regIm, fixedImage)
+
+%%
+interactiveRegVis(regIm, fixedImage, 'z');

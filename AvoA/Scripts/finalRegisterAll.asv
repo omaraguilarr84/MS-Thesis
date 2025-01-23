@@ -135,21 +135,22 @@ for i = 1:length(dates)
         movingImage_circle = movingImage_circle(:, :, 1);
         
         % Bayesian optimizer for 2D circle images
-        results = bayesianOptimizer2D(fixedImage_circle, movingImage_circle, ...
-            maxObjectiveEvals, useParallel);
+        results_circle = bayesianOptimizer2D(fixedImage_circle, movingImage_circle, ...
+            200, useParallel);
     
         % Apply results to circle images
         [optimizer_circle, metric_circle] = imregconfig('monomodal');
-        optimizer_circle.GradientMagnitudeTolerance = results.XAtMinObjective.GradientMagnitudeTolerance;
-        optimizer_circle.MinimumStepLength = results.XAtMinObjective.MinimumStepLength;
-        optimizer_circle.MaximumStepLength = results.XAtMinObjective.MaximumStepLength;
-        optimizer_circle.MaximumIterations = results.XAtMinObjective.MaximumIterations;
-        optimizer_circle.RelaxationFactor = results.XAtMinObjective.RelaxationFactor;
-        pyrLevel_circle = results.XAtMinObjective.PyramidLevel;
-        tformType_circle = char(results.XAtMinObjective.TransformType);
+        optimizer_circle.GradientMagnitudeTolerance = results_circle.XAtMinObjective.GradientMagnitudeTolerance;
+        optimizer_circle.MinimumStepLength = results_circle.XAtMinObjective.MinimumStepLength;
+        optimizer_circle.MaximumStepLength = results_circle.XAtMinObjective.MaximumStepLength;
+        optimizer_circle.MaximumIterations = results_circle.XAtMinObjective.MaximumIterations;
+        optimizer_circle.RelaxationFactor = results_circle.XAtMinObjective.RelaxationFactor;
+        pyrLevel_circle = results_circle.XAtMinObjective.PyramidLevel;
+        tformType_circle = char(results_circle.XAtMinObjective.TransformType);
     
         tform_circle = imregtform(movingImage_circle, fixedImage_circle, ...
-            'similarity', optimizer_circle, metric_circle);
+            tformType_circle, optimizer_circle, metric_circle, ...
+            'PyramidLevels', pyrLevel_circle);
     
         registeredImage_circle = imwarp(movingImage_circle, tform_circle, ... % do we need this?
             'linear', 'OutputView', imref2d(size(fixedImage_circle)));
@@ -177,14 +178,6 @@ for i = 1:length(dates)
         if overlap_final == 0
             continue
         end
-        
-        % Log evaluation metrics in the table
-        % scores.MovingDate{i-1} = movingDate;
-        % scores.Dice(i-1) = computeDice3D(fixedImage, registeredImage_final);
-        % scores.HD(i-1) = computeHausdorffDistance(registeredImage_final, ...
-        %     fixedImage);
-        % scores.NormHD(i-1) = scores.HD(i-1) / sqrt(size(fixedImage, 1)^2 + ...
-        %     size(fixedImage, 2)^2 + size(fixedImage, 3)^2);
         
         % Save registered grayscale image to output folder
         outputFile = fullfile(outputFolder, sprintf('%s-%s', fixedDate, ...
@@ -249,3 +242,38 @@ MIPxyzLapse(MIPImages, frameDates, fovSizes);
 
 %% Save Video
 saveMIPLapseVideo(MIPImages, '../MIP_Videos/Avo_MIP_TL_all.mp4', 3, frameDates, fovSizes);
+
+%%
+fixedImage_dot = fixedImage(:, :, 1);
+movingImage_dot = movingImage(:, :, 1);
+
+fixedImage_dot(500:512, 250:260) = 10000;
+movingImage_dot(500:512, 250:260) = 10000;
+
+threshold_dot = 9000;
+fixedImageBW_dot = double(fixedImage_dot > threshold_dot);
+movingImageBW_dot = double(movingImage_dot > threshold_dot);
+
+[optimizer_dot, metric_dot] = imregconfig('monomodal');
+
+tform_dot = imregtform(movingImageBW_dot, fixedImageBW_dot, ...
+    'similarity', optimizer_circle, metric_circle);
+
+figure;
+imshowpair(fixedImageBW_dot, movingImageBW_dot);
+
+%%
+mat = [0.4698 0 0 135.9961;
+        0 0.4698 0 280;
+        0 0 0.9961 0;
+        0 0 0 1];
+
+tform = affinetform3d(mat);
+
+regIm = imwarp(movingImage, tform, 'linear', 'OutputView', ...
+    imref3d(size(fixedImage)));
+
+computeDice3D(regIm, fixedImage)
+
+%%
+interactiveRegVis(regIm, fixedImage, 'z');
