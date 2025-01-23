@@ -1,8 +1,8 @@
 clear; clc; close all;
 
 %% Load Info and Image
-dicomFolder1 = '../Data/20240830_rev/series/';
-dicomFolder2 = '../Data/20240910/series/';
+dicomFolder1 = '../AvoData/20240904/seriesFull/';
+dicomFolder2 = '../AvoData/20240828/series/';
 
 warning('off', 'MATLAB:DELETE:Permission');
 

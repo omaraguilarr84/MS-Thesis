@@ -10,7 +10,7 @@ function MIPxyzLapse(MIPImages, dates, fovSizes)
     fig = figure('Name', 'MIP Time-Lapse Viewer', 'NumberTitle', 'off', 'Position', [100, 100, 800, 100], 'Resize', 'off');
     ax = axes('Parent', fig);
 
-    hImage = imshow(MIPImages(:, :, 1), [], 'Parent', ax);
+    hImage = imshow(MIPImages(:, :, 1), [800 1300], 'Parent', ax);
     colormap(ax, gray);
     axis(ax, 'image');
 

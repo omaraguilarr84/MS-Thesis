@@ -1,4 +1,4 @@
-function [results] = bayesianOptimizer3D(fixedImage, movingImage, maxObjectiveEvaluations, useParallel)
+function [results] = bayesianOptimizer2D(fixedImage, movingImage, maxObjectiveEvaluations, useParallel)
     if useParallel == true
         c = parcluster('local');
         n_workers = c.NumWorkers - 2;
@@ -25,7 +25,7 @@ function [results] = bayesianOptimizer3D(fixedImage, movingImage, maxObjectiveEv
     
     % Create a custom output function to monitor progress
     consecutiveThreshold = 10;
-    thresholdValue = -0.9;
+    thresholdValue = -0.98;
     bestEval = Inf;
     consecutiveCount = 0;
     
@@ -52,6 +52,7 @@ function [results] = bayesianOptimizer3D(fixedImage, movingImage, maxObjectiveEv
         optimVars, ...
         'Verbose', 1, ...
         'AcquisitionFunctionName', 'expected-improvement-plus', ...
+        'ExplorationRatio', 0.9, ...
         'MaxObjectiveEvaluations', maxObjectiveEvaluations, ...
         'UseParallel', useParallel, ...
         'OutputFcn', @earlyStopFcn);
@@ -72,7 +73,7 @@ function score = objFcn(params, movingImage, fixedImage)
             tformType, optimizer, metric, ...
             'PyramidLevels', params.PyramidLevel);
         registeredImage = imwarp(movingImage, tform, ...
-            'OutputView', imref3d(size(fixedImage)));
+            'OutputView', imref2d(size(fixedImage)));
 
         overlap = computeDice3D(fixedImage, registeredImage);
         score = -overlap;

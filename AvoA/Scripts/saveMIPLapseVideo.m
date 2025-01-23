@@ -32,7 +32,7 @@ function saveMIPLapseVideo(MIPImages, outputFile, frameRate, dates, fovSizes)
 
         % Update the title with date and FOV size
         title(ax, sprintf('Date: %s, FOV: %s', ...
-            dates{i}, fovSizes{i}), 'FontSize', 14);
+            string(dates{i}), string(fovSizes{i})), 'FontSize', 14);
 
         % Capture the frame and write to video
         frame = getframe(fig);
