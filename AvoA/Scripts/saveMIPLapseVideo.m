@@ -26,7 +26,7 @@ function saveMIPLapseVideo(MIPImages, outputFile, frameRate, dates, fovSizes)
     numFrames = size(MIPImages, 3);
     for i = 1:numFrames
         % Display the MIP image
-        imshow(MIPImages(:, :, i), [], 'Parent', ax);
+        imshow(MIPImages(:, :, i), [800 1300], 'Parent', ax);
         colormap(ax, gray);
         axis(ax, 'image');
 

@@ -46,7 +46,7 @@ end
 windowLevel = [800 1300];
 
 %% Loop Through Dates (Images)
-for i = 1:length(dates)
+for i = 1%:length(dates)
     fprintf('Registering %d of %d...\n', i, length(dates));
 
     currentFolder = fullfile(dataFolder, dates{i});
@@ -74,7 +74,7 @@ for i = 1:length(dates)
     for l = 1:length(subDirs)
         seriesFolder = fullfile(currentFolder, subDirs(l).name);
 
-        if strcmp(seriesFolder, series)
+        if strcmp(seriesFolder, series) && ~exist(seriesFull, 'dir')
             movingPath = series;
             fov = 'small';
         elseif strcmp(seriesFolder, seriesFull)
@@ -267,7 +267,7 @@ disp(['Dice Coefficient: ', num2str(overlap_final)]);
 
 %%
 mat = [0.4698 0 0 135.9961;
-        0 0.4698 0 280;
+        0 0.4698 0 185.2481;
         0 0 0.9961 0;
         0 0 0 1];
 
@@ -280,3 +280,66 @@ computeDice3D(regIm, fixedImage)
 
 %%
 interactiveRegVis(regIm, fixedImage, 'z');
+
+%%
+projectionXY = any(fixedImage_shell_full, 3);
+    
+[rows, cols] = find(projectionXY);
+xMin = min(rows) - 50;
+yMin = min(cols) - 50;
+yMax = max(cols) + 50;
+    
+croppedImage = fixedImage_shell_full(xMin:end, yMin:yMax, :);
+
+%%
+mat = [0.4698 0 0 135.9961;
+        0 0.4698 0 283;
+        0 0 0.9961 0;
+        0 0 0 1];
+
+tform = affinetform3d(mat);
+
+regIm = imwarp(movingImage, tform, 'linear', 'OutputView', ...
+    imref3d(size(fixedImage)));
+
+computeDice3D(regIm, fixedImage)
+
+%%
+interactiveRegVis(regIm, fixedImage, 'z');
+
+%%
+tform_idk = tform_final;
+tform_idk.A(2, 4) = 280;
+
+registeredImage_idk = imwarp(movingImage, tform_idk, 'linear', ...
+    'OutputView', imref3d(size(fixedImage)));
+
+fixedImage_mid = double(fixedImage(:, :, 256) > 100);
+movingImage_mid = double(registeredImage_idk(:, :, 256) > 100);
+
+fixedImage_mid(1:200, :) = 0;
+
+imshowpair(fixedImage_mid, movingImage_mid);
+
+results_mid = bayesianOptimizer2D(fixedImage_mid, movingImage_mid, 50, true);
+
+[optimizer_mid, metric_mid] = imregconfig('monomodal');
+optimizer_mid.GradientMagnitudeTolerance = results_mid.XAtMinObjective.GradientMagnitudeTolerance;
+optimizer_mid.MinimumStepLength = results_mid.XAtMinObjective.MinimumStepLength;
+optimizer_mid.MaximumStepLength = results_mid.XAtMinObjective.MaximumStepLength;
+optimizer_mid.MaximumIterations = results_mid.XAtMinObjective.MaximumIterations;
+optimizer_mid.RelaxationFactor = results_mid.XAtMinObjective.RelaxationFactor;
+pyrLevel_mid = results_mid.XAtMinObjective.PyramidLevel;
+%tformType_mid = char(results_mid.XAtMinObjective.TransformType);
+
+tform_mid = imregtform(movingImage_mid, fixedImage_mid, 'translation', ...
+    optimizer_mid, metric_mid, 'PyramidLevels', pyrLevel_mid);
+
+registeredImage_mid = imwarp(movingImage_mid, tform_mid, 'linear', ...
+    'OutputView', imref2d(size(fixedImage_mid)));
+
+computeDice3D(registeredImage_mid, fixedImage_mid);
+
+imshowpair(registeredImage_mid, fixedImage_mid);
+
+%% reset final to have 0 y tranlastion and then see if it gets it right
