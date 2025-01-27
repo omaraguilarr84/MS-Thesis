@@ -46,7 +46,7 @@ end
 windowLevel = [800 1300];
 
 %% Loop Through Dates (Images)
-for i = 1%:length(dates)
+for i = 1:length(dates)
     fprintf('Registering %d of %d...\n', i, length(dates));
 
     currentFolder = fullfile(dataFolder, dates{i});
@@ -101,8 +101,14 @@ for i = 1%:length(dates)
         % Run Bayesian Optimizer to find best parameters for optimizer
         maxObjectiveEvals = 50;
         useParallel = true;
-        results = bayesianOptimizer3D(fixedImage_shell, movingImage_shell, ...
-            maxObjectiveEvals, useParallel);
+        minObj = 0;
+        cnt = 0;
+        while minObj > -0.9 || cnt < 5
+            results = bayesianOptimizer3D(fixedImage_shell, movingImage_shell, ...
+                maxObjectiveEvals, useParallel);
+            minObj = results.MinObjective;
+            cnt = cnt + 1;
+        end
     
         % Apply results of Bayesian Optimizer to cropped images
         [optimizer_shell, metric_shell] = imregconfig('monomodal');
@@ -135,8 +141,14 @@ for i = 1%:length(dates)
         movingImage_circle = movingImage_circle(:, :, 1);
         
         % Bayesian optimizer for 2D circle images
-        results_circle = bayesianOptimizer2D(fixedImage_circle, movingImage_circle, ...
-            200, useParallel, 'shell');
+        minObj_circle = 0;
+        cnt = 0;
+        while minObj_circle > -0.98 || cnt < 5
+            results_circle = bayesianOptimizer2D(fixedImage_circle, movingImage_circle, ...
+                200, useParallel, 'shell');
+            minObj_circle = results_circle.MinObjective;
+            cnt = cnt + 1;
+        end
     
         % Apply results to circle images
         [optimizer_circle, metric_circle] = imregconfig('monomodal');
@@ -174,15 +186,23 @@ for i = 1%:length(dates)
         registeredImage_mid = imwarp(movingImage, tform_mid, 'linear', ...
             'OutputView', imref3d(size(fixedImage)));
 
-        overlap_mid = computeDice3D(registeredImage_mid, fixedImage);
-        disp(['Dice Coefficient (Mid): ', num2str(overlap_mid)]);
-
         threshold_mid = 100;
         fixedImage_mid = double(fixedImage(:, :, 256) > threshold_mid);
-        movingImage_mid = double(movingImage(:, :, 256) > threshold_mid);
+        movingImage_mid = double(registeredImage_mid(:, :, 256) > threshold_mid);
 
-        results_mid = bayesianOptimizer2D(fixedImage_mid, movingImage_mid, ...
-            50, true, 'mid');
+        overlap_mid = computeDice3D(movingImage_mid, fixedImage_mid);
+        disp(['Dice Coefficient (Mid): ', num2str(overlap_mid)]);
+
+        fixedImage_mid(1:200, :) = 0;
+        
+        minObj_mid = 0;
+        cnt = 0;
+        while minObj_mid > -0.9 || cnt < 5
+            results_mid = bayesianOptimizer2D(fixedImage_mid, movingImage_mid, ...
+                50, true, 'mid');
+            minObj_mid = results_mid.MinObjective;
+            cnt = cnt + 1;
+        end
 
         [optimizer_mid, metric_mid] = imregconfig('monomodal');
         optimizer_mid.GradientMagnitudeTolerance = results_mid.XAtMinObjective.GradientMagnitudeTolerance;
@@ -198,12 +218,12 @@ for i = 1%:length(dates)
         registeredImage_adj = imwarp(movingImage_mid, tform_adj, 'linear', ...
             'OutputView', imref2d(size(fixedImage_mid)));
 
-        overlap_adj = computeDice3D(registeredImage_adj, fixedImage);
+        overlap_adj = computeDice3D(registeredImage_adj, fixedImage_mid);
         disp(['Dice Coefficient (Adj): ', num2str(overlap_adj)]);
 
         tform_final = tform_mid;
-        tform_final(1, 4) = tform_mid(1, 4) + tform_adj(1, 3);
-        tform_final(2, 4) = tform_mid(2, 4) + tform_adj(2, 3);
+        tform_final.A(1, 4) = tform_mid.A(1, 4) + tform_adj.A(1, 3);
+        tform_final.A(2, 4) = tform_mid.A(2, 4) + tform_adj.A(2, 3);
         
         registeredImage_final = imwarp(movingImage, tform_final, 'linear', 'OutputView', ...
             imref3d(size(fixedImage)));
