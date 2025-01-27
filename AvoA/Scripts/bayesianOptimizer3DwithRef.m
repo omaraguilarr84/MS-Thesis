@@ -1,4 +1,4 @@
-function [results] = bayesianOptimizer2D(fixedImage, movingImage, maxObjectiveEvaluations, useParallel)
+function [results] = bayesianOptimizer3DwithRef(fixedImage, fRef, movingImage, mRef, maxObjectiveEvaluations, useParallel)
     if useParallel == true
         c = parcluster('local');
         n_workers = c.NumWorkers - 2;
@@ -20,12 +20,12 @@ function [results] = bayesianOptimizer2D(fixedImage, movingImage, maxObjectiveEv
         optimizableVariable('MaximumIterations', [50, 1500], 'Type', 'integer'), ...
         optimizableVariable('RelaxationFactor', [0.3, 0.8]), ...
         optimizableVariable('PyramidLevel', [1, 5], 'Type', 'integer'), ...
-        optimizableVariable('TransformType', {'similarity', 'affine', 'translation'}, 'Type', 'categorical')
+        optimizableVariable('TransformType', {'similarity', 'affine'}, 'Type', 'categorical')
     ];
     
     % Create a custom output function to monitor progress
     consecutiveThreshold = 10;
-    thresholdValue = -0.98;
+    thresholdValue = -0.9;
     bestEval = Inf;
     consecutiveCount = 0;
     
@@ -48,17 +48,16 @@ function [results] = bayesianOptimizer2D(fixedImage, movingImage, maxObjectiveEv
     end
 
     % Run Bayesian optimization
-    results = bayesopt(@(params)objFcn(params, movingImage, fixedImage), ...
+    results = bayesopt(@(params)objFcn(params, movingImage, mRef, fixedImage, fRef), ...
         optimVars, ...
         'Verbose', 1, ...
         'AcquisitionFunctionName', 'expected-improvement-plus', ...
-        'ExplorationRatio', 0., ...
         'MaxObjectiveEvaluations', maxObjectiveEvaluations, ...
         'UseParallel', useParallel, ...
         'OutputFcn', @earlyStopFcn);
 end
 
-function score = objFcn(params, movingImage, fixedImage)
+function score = objFcn(params, movingImage, mRef, fixedImage, fRef)
     try
         tformType = char(params.TransformType);
         
@@ -69,11 +68,11 @@ function score = objFcn(params, movingImage, fixedImage)
         optimizer.MaximumIterations = params.MaximumIterations;
         optimizer.RelaxationFactor = params.RelaxationFactor;
 
-        tform = imregtform(movingImage, fixedImage, ...
+        tform = imregtform(movingImage, mRef, fixedImage, fRef, ...
             tformType, optimizer, metric, ...
             'PyramidLevels', params.PyramidLevel);
         registeredImage = imwarp(movingImage, tform, ...
-            'OutputView', imref2d(size(fixedImage)));
+            'OutputView', imref3d(size(fixedImage)));
 
         overlap = computeDice3D(fixedImage, registeredImage);
         score = -overlap;

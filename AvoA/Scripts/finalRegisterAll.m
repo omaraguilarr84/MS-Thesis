@@ -122,7 +122,7 @@ for i = 1%:length(dates)
             'OutputView', imref3d(size(fixedImage_shell)));
     
         overlap_shell = computeDice3D(registeredImage_shell, fixedImage_shell);
-        disp(['Dice Coefficient: ', num2str(overlap_shell)]);
+        disp(['Dice Coefficient (Shell): ', num2str(overlap_shell)]);
         
         % Create new transform to obtain correct x and y translation and 
         % scale values. This uses a very low threshold to compute a 2D
@@ -136,7 +136,7 @@ for i = 1%:length(dates)
         
         % Bayesian optimizer for 2D circle images
         results_circle = bayesianOptimizer2D(fixedImage_circle, movingImage_circle, ...
-            200, useParallel);
+            200, useParallel, 'shell');
     
         % Apply results to circle images
         [optimizer_circle, metric_circle] = imregconfig('monomodal');
@@ -156,24 +156,60 @@ for i = 1%:length(dates)
             'linear', 'OutputView', imref2d(size(fixedImage_circle)));
 
         overlap_circle = computeDice3D(registeredImage_circle, fixedImage_circle);
-        disp(['Dice Coefficient: ', num2str(overlap_circle)]);
+        disp(['Dice Coefficient (Circle): ', num2str(overlap_circle)]);
         
         % Make final transformation matrix
-        mat_final = eye(4);
-        for j = 1:2
-            mat_final(j, j) = tform_circle.A(j, j);
-            mat_final(j, 4) = tform_circle.A(j, 3);
-        end
-        mat_final(3, 3) = tform_shell.A(3, 3);
-    
-        tform_final = affinetform3d(mat_final);
-        
-        % Apply final transformation matrix to original grayscale images
-        registeredImage_final = imwarp(movingImage, tform_final, 'linear', ...
+        fixedPixelSpacing = fInfo.PixelSpacing(1);
+        movingPixelSpacing = mInfo.PixelSpacing(1);
+        pixelSpacingRatio = movingPixelSpacing / fixedPixelSpacing;
+        y_bottom = pixelSpacingRatio * 512;
+
+        mat_mid = [pixelSpacingRatio 0 0 tform_circle.A(1, 3);
+                    0 pixelSpacingRatio 0 512 - y_bottom;
+                    0 0 tform_shell.A(3, 3) 0;
+                    0 0 0 1];
+
+        tform_mid = affinetform3d(mat_mid);
+
+        registeredImage_mid = imwarp(movingImage, tform_mid, 'linear', ...
             'OutputView', imref3d(size(fixedImage)));
 
+        overlap_mid = computeDice3D(registeredImage_mid, fixedImage);
+        disp(['Dice Coefficient (Mid): ', num2str(overlap_mid)]);
+
+        threshold_mid = 100;
+        fixedImage_mid = double(fixedImage(:, :, 256) > threshold_mid);
+        movingImage_mid = double(movingImage(:, :, 256) > threshold_mid);
+
+        results_mid = bayesianOptimizer2D(fixedImage_mid, movingImage_mid, ...
+            50, true, 'mid');
+
+        [optimizer_mid, metric_mid] = imregconfig('monomodal');
+        optimizer_mid.GradientMagnitudeTolerance = results_mid.XAtMinObjective.GradientMagnitudeTolerance;
+        optimizer_mid.MinimumStepLength = results_mid.XAtMinObjective.MinimumStepLength;
+        optimizer_mid.MaximumStepLength = results_mid.XAtMinObjective.MaximumStepLength;
+        optimizer_mid.MaximumIterations = results_mid.XAtMinObjective.MaximumIterations;
+        optimizer_mid.RelaxationFactor = results_mid.XAtMinObjective.RelaxationFactor;
+        pyrLevel_mid = results_mid.XAtMinObjective.PyramidLevel;
+        
+        tform_adj = imregtform(movingImage_mid, fixedImage_mid, 'translation', ...
+            optimizer_mid, metric_mid, 'PyramidLevels', pyrLevel_mid);
+        
+        registeredImage_adj = imwarp(movingImage_mid, tform_adj, 'linear', ...
+            'OutputView', imref2d(size(fixedImage_mid)));
+
+        overlap_adj = computeDice3D(registeredImage_adj, fixedImage);
+        disp(['Dice Coefficient (Adj): ', num2str(overlap_adj)]);
+
+        tform_final = tform_mid;
+        tform_final(1, 4) = tform_mid(1, 4) + tform_adj(1, 3);
+        tform_final(2, 4) = tform_mid(2, 4) + tform_adj(2, 3);
+        
+        registeredImage_final = imwarp(movingImage, tform_final, 'linear', 'OutputView', ...
+            imref3d(size(fixedImage)));
+
         overlap_final = computeDice3D(registeredImage_final, fixedImage);
-        disp(['Dice Coefficient: ', num2str(overlap_final)]);
+        disp(['Dice Coefficient (Final): ', num2str(overlap_final)]);
 
         if overlap_final == 0
             continue
@@ -308,8 +344,13 @@ computeDice3D(regIm, fixedImage)
 interactiveRegVis(regIm, fixedImage, 'z');
 
 %%
+fixedPixelSpacing = fInfo.PixelSpacing(1);
+movingPixelSpacing = mInfo.PixelSpacing(1);
+pixelSpacingRatio = movingPixelSpacing / fixedPixelSpacing;
+y_bottom = pixelSpacingRatio * 512;
+
 tform_idk = tform_final;
-tform_idk.A(2, 4) = 280;
+tform_idk.A(2, 4) = 512 - y_bottom;
 
 registeredImage_idk = imwarp(movingImage, tform_idk, 'linear', ...
     'OutputView', imref3d(size(fixedImage)));
@@ -319,9 +360,9 @@ movingImage_mid = double(registeredImage_idk(:, :, 256) > 100);
 
 fixedImage_mid(1:200, :) = 0;
 
-imshowpair(fixedImage_mid, movingImage_mid);
+% imshowpair(fixedImage_mid, movingImage_mid);
 
-results_mid = bayesianOptimizer2D(fixedImage_mid, movingImage_mid, 50, true);
+results_mid = bayesianOptimizer2D(fixedImage_mid, movingImage_mid, 50, true, 'mid');
 
 [optimizer_mid, metric_mid] = imregconfig('monomodal');
 optimizer_mid.GradientMagnitudeTolerance = results_mid.XAtMinObjective.GradientMagnitudeTolerance;
@@ -341,5 +382,18 @@ registeredImage_mid = imwarp(movingImage_mid, tform_mid, 'linear', ...
 computeDice3D(registeredImage_mid, fixedImage_mid);
 
 imshowpair(registeredImage_mid, fixedImage_mid);
+
+%%
+mat = [pixelSpacingRatio 0 0 tform_idk.A(1, 4) + tform_mid.A(1, 3);
+        0 pixelSpacingRatio 0 tform_idk.A(2, 4) + tform_mid.A(2, 3);
+        0 0 tform_final.A(3, 3) 0;
+        0 0 0 1];
+
+tform = affinetform3d(mat);
+
+registeredImage = imwarp(movingImage, tform, 'linear', 'OutputView', ...
+    imref3d(size(fixedImage)));
+
+interactiveRegVis(registeredImage, fixedImage, 'z');
 
 %% reset final to have 0 y tranlastion and then see if it gets it right
